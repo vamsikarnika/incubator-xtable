@@ -2,6 +2,15 @@
 
 [![Build Status](https://dev.azure.com/onetable-io/onetable-io/_apis/build/status%2Fonetable-io.onetable?branchName=main)](https://dev.azure.com/onetable-io/onetable-io/_build/latest?definitionId=1&branchName=main)
 
+# This is a internal fork of [Onetable OSS](https://github.com/onetable-io/onetable.git). To merge upstream changes
+  Follow the steps below:
+1. cd onetable-internal
+2. git remote add upstream https://github.com/onetable-io/onetable.git
+3. git remote set-url --push upstream DISABLE
+4. Verify with git remote -v
+5. git fetch upstream
+6. git merge upstream/main
+
 OneTable is an omni-directional converter for table formats that facilitates interoperability across data processing systems
 and query engines.
 Currently, OneTable supports widely adopted open-source table formats such as Apache Hudi, Apache Iceberg, and Delta Lake.

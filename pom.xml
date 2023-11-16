@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>io.onetable</groupId>
     <artifactId>onetable</artifactId>
-    <name>onetable</name>
-    <version>0.1.0-SNAPSHOT</version>
+    <name>onetable-internal</name>
+    <version>0.1.0</version>
     <packaging>pom</packaging>
 
     <modules>
@@ -559,9 +559,21 @@
 
     <distributionManagement>
         <repository>
-            <id>github</id>
-            <name>GitHub Packages</name>
-            <url>https://maven.pkg.github.com/onetable-io/onetable</url>
+            <id>codeartifact</id>
+            <name>codeartifact</name>
+            <url>https://onehouse-194159489498.d.codeartifact.us-west-2.amazonaws.com/maven/onehouse-internal/</url>
         </repository>
+        <snapshotRepository>
+            <id>codeartifact</id>
+            <name>codeartifact</name>
+            <url>https://onehouse-194159489498.d.codeartifact.us-west-2.amazonaws.com/maven/onehouse-internal/</url>
+        </snapshotRepository>
     </distributionManagement>
+    <repositories>
+        <repository>
+            <id>codeartifact</id>
+            <name>codeartifact</name>
+            <url>https://onehouse-194159489498.d.codeartifact.us-west-2.amazonaws.com/maven/onehouse-internal/</url>
+        </repository>
+    </repositories>
 </project>
