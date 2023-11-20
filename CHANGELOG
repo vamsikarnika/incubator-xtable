@@ -1,1 +1,17 @@
 ---[2023-11-18 19:44:40] [release-v0.1.0] Adding release tag for onetable v0.1.0---
+---[2023-11-20 13:56:00] [release-v0.2.0] add iceberg target corruption recovery logic---
+3a8af30 Merge pull request #4 from onehouseinc/iceberg_corruption_logic
+4f4552e Merge remote-tracking branch 'upstream/176-iceberg-corruption-recovery' into iceberg_corruption_logic
+792f88d Merge pull request #3 from onehouseinc/onetable-internal-release-v0.1.0
+f6382af modify changelog
+161092a release for 0.1.0
+093f354 Upgrade to version release-v0.1.0
+7c47bfc move rollback logic to object initialization, update tests to check history and parent snapshot
+203ef51 Merge remote-tracking branch 'origin/main' into 176-iceberg-corruption-recovery
+f737637 Docker presto extension (#247)
+001f5e7 Add Microsoft Fabric tutorial for OneTable (#237)
+2878e18 update rollback check and clear out last sync state
+166522d Merge remote-tracking branch 'origin/main' into 176-iceberg-corruption-recovery
+18ec4d6 more test cleanup
+1c1a701 fix path
+80820bc add handling for incomplete commit in iceberg
