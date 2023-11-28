@@ -15,3 +15,14 @@ f737637 Docker presto extension (#247)
 18ec4d6 more test cleanup
 1c1a701 fix path
 80820bc add handling for incomplete commit in iceberg
+
+---[2023-11-28 12:38:11] [release-v0.3.0] ---
+595ecff Merge pull request #7 from onehouseinc/onetable-upstream-changes
+39a0b20 Merge remote-tracking branch 'upstream/main'
+b095d74 add handling for incomplete commit in iceberg (#177)
+50158ba Properly report errors from sync tool, fix logging (#259)
+62613bb Improve sync utility cli parse error messages (#255)
+a2c0884 Merge pull request #5 from onehouseinc/onetable-internal-release-v0.2.0
+b842275 Upgrade to version release-v0.2.0
+c2a7a9e add info about presto on docs (#248)
+83fb7e3 Docs update quickstart iceberg (#239)
