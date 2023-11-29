@@ -30,3 +30,7 @@ c2a7a9e add info about presto on docs (#248)
 ---[2023-11-28 22:57:32] [release-v0.3.1] ---
 7089dcb Merge pull request #8 from onehouseinc/onetable-internal-release-v0.3.0
 9544600 Upgrade to version release-v0.3.0
+
+---[2023-11-28 23:06:38] [release-v0.3.2] ---
+1b8cef2 Merge pull request #9 from onehouseinc/fix-release
+8c2768d deploy all jars
