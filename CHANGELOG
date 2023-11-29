@@ -26,3 +26,7 @@ a2c0884 Merge pull request #5 from onehouseinc/onetable-internal-release-v0.2.0
 b842275 Upgrade to version release-v0.2.0
 c2a7a9e add info about presto on docs (#248)
 83fb7e3 Docs update quickstart iceberg (#239)
+
+---[2023-11-28 22:57:32] [release-v0.3.1] ---
+7089dcb Merge pull request #8 from onehouseinc/onetable-internal-release-v0.3.0
+9544600 Upgrade to version release-v0.3.0
