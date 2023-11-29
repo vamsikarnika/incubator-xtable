@@ -43,4 +43,4 @@ jobs:
       - name: Set java version
         run: mvn versions:set -DnewVersion="$VERSION"
       - name: Deploy
-        run: mvn -B -ntp -am -pl core deploy -DskipTests
+        run: mvn -B -ntp deploy -DskipTests
