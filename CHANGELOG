@@ -34,3 +34,9 @@ c2a7a9e add info about presto on docs (#248)
 ---[2023-11-28 23:06:38] [release-v0.3.2] ---
 1b8cef2 Merge pull request #9 from onehouseinc/fix-release
 8c2768d deploy all jars
+
+---[2023-11-29 20:25:39] [release-v0.3.3] ---
+e954aa1 only set record key field in iceberg if it is a required field (#260) (#12)
+65ab81b Upgrade to version release-v0.3.2 (#11)
+310ba9e Merge pull request #10 from onehouseinc/onetable-internal-release-v0.3.1
+c8ced36 Upgrade to version release-v0.3.1
