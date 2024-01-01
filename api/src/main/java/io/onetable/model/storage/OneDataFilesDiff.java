@@ -51,7 +51,8 @@ public class OneDataFilesDiff {
   public static OneDataFilesDiff from(List<OneDataFile> source, List<OneDataFile> target) {
     Map<String, OneDataFile> targetPaths =
         target.stream()
-            .collect(Collectors.toMap(OneDataFile::getPhysicalPath, Function.identity()));
+            .collect(
+                Collectors.toMap(OneDataFile::getPhysicalPath, Function.identity(), (a, b) -> a));
     // Any files in the source that are not in the target are added
     Set<OneDataFile> addedFiles =
         source.stream()
