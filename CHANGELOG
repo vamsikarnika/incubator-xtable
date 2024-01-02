@@ -40,3 +40,8 @@ e954aa1 only set record key field in iceberg if it is a required field (#260) (#
 65ab81b Upgrade to version release-v0.3.2 (#11)
 310ba9e Merge pull request #10 from onehouseinc/onetable-internal-release-v0.3.1
 c8ced36 Upgrade to version release-v0.3.1
+
+---[2024-01-01 15:05:15] [release-v0.4.0] ---
+9fa138f [ENG-5291] add in defensive case for multiple files with the same path in the target (#15)
+6c733fe [ENG-5291] Upstream updates (#14)
+43ec75b Upgrade to version release-v0.3.3 (#13)
