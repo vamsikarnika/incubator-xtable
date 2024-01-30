@@ -58,17 +58,11 @@ public class OneTableMetadata {
   }
 
   public static Optional<OneTableMetadata> fromMap(Map<String, String> properties) {
-    if (properties != null) {
-      Instant lastInstantSynced = null;
-      List<Instant> instantsToConsiderForNextSync = null;
-      if (properties.containsKey(ONETABLE_LAST_INSTANT_SYNCED_PROP)) {
-        lastInstantSynced = Instant.parse(properties.get(ONETABLE_LAST_INSTANT_SYNCED_PROP));
-      }
-      if (properties.containsKey(INFLIGHT_COMMITS_TO_CONSIDER_FOR_NEXT_SYNC_PROP)) {
-        instantsToConsiderForNextSync =
-            convertStringToInstantsToConsiderForNextSync(
-                properties.get(INFLIGHT_COMMITS_TO_CONSIDER_FOR_NEXT_SYNC_PROP));
-      }
+    if (properties != null && properties.containsKey(ONETABLE_LAST_INSTANT_SYNCED_PROP)) {
+      Instant lastInstantSynced = Instant.parse(properties.get(ONETABLE_LAST_INSTANT_SYNCED_PROP));
+      List<Instant> instantsToConsiderForNextSync =
+          convertStringToInstantsToConsiderForNextSync(
+              properties.get(INFLIGHT_COMMITS_TO_CONSIDER_FOR_NEXT_SYNC_PROP));
       return Optional.ofNullable(
           OneTableMetadata.of(lastInstantSynced, instantsToConsiderForNextSync));
     }
