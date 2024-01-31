@@ -45,3 +45,7 @@ c8ced36 Upgrade to version release-v0.3.1
 9fa138f [ENG-5291] add in defensive case for multiple files with the same path in the target (#15)
 6c733fe [ENG-5291] Upstream updates (#14)
 43ec75b Upgrade to version release-v0.3.3 (#13)
+
+---[2024-01-31 12:36:21] [release-v0.4.1] ---
+e3e729a [ENG-6248] fix parsing issues when reading metadata (#18)
+897eb1e Upgrade to version release-v0.4.0 (#16)
