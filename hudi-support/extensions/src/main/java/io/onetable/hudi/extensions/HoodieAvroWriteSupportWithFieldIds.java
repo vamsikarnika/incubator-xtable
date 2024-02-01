@@ -20,6 +20,7 @@ package io.onetable.hudi.extensions;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import org.apache.avro.Schema;
@@ -62,10 +63,17 @@ public class HoodieAvroWriteSupportWithFieldIds extends HoodieAvroWriteSupport {
 
   private static MessageType addFieldIdsToParquetSchema(
       MessageType messageType, Schema schema, Properties properties) {
+    return addFieldIdsToParquetSchema(
+        messageType,
+        schema,
+        () -> HoodieWriteConfig.newBuilder().withProperties(properties).build());
+  }
+
+  public static MessageType addFieldIdsToParquetSchema(
+      MessageType messageType, Schema schema, Supplier<HoodieWriteConfig> writeConfigSupplier) {
     Option<IdTracking> idTrackingOption = ID_TRACKER.getIdTracking(schema);
     if (!idTrackingOption.isPresent()) {
-      HoodieWriteConfig writeConfig =
-          HoodieWriteConfig.newBuilder().withProperties(properties).build();
+      HoodieWriteConfig writeConfig = writeConfigSupplier.get();
       String writeSchemaStr = writeConfig.getWriteSchema();
       // if there is a schema with ID tracking specified in the properties, fall back to inferring
       // the proper ID tracking on provided schema
