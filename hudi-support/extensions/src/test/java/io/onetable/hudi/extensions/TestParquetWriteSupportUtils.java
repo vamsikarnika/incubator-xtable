@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -70,7 +71,7 @@ public class TestParquetWriteSupportUtils {
     MessageType firstMessageTypeWithIds =
         ParquetWriteSupportUtils.addFieldIdsToParquetSchema(
             firstMessageType, startingSchema, startingWriteConfig);
-    checkMessageType(firstMessageTypeWithIds, 1);
+    checkMessageType(firstMessageTypeWithIds, Collections.singletonList(1));
 
     // test with ID tracking in the avro schema but not the write config
     Schema fullSchemaWithId =
@@ -80,22 +81,31 @@ public class TestParquetWriteSupportUtils {
     MessageType fullMessageTypeWithIds =
         ParquetWriteSupportUtils.addFieldIdsToParquetSchema(
             fullMessageType, fullSchemaWithId, null);
-    checkMessageType(fullMessageTypeWithIds, 3);
+    checkMessageType(fullMessageTypeWithIds, Arrays.asList(1, 2, 3));
+
+    // test with ID tracking with dropped column
+    Schema dropBSchema = HoodieAvroUtils.generateProjectionSchema(fullSchema, Arrays.asList("a", "c"));
+    MessageType dropBmessage = new AvroSchemaConverter().convert(dropBSchema);
+    assertNoID(dropBmessage);
+    MessageType dropBmessageWithIds =
+        ParquetWriteSupportUtils.addFieldIdsToParquetSchema(
+            dropBmessage, fullSchemaWithId, null);
+    checkMessageType(dropBmessageWithIds, Arrays.asList(1, 3));
   }
 
   private static void assertNoID(MessageType messageType) {
     messageType.getFields().forEach(t -> assertNull(t.getId()));
   }
 
-  private static void checkMessageType(MessageType messageType, int n) {
+  private static void checkMessageType(MessageType messageType, List<Integer> expected) {
     Set<Integer> idSet =
         messageType.getFields().stream()
             .filter(t -> t.getId() != null)
             .map(t -> t.getId().intValue())
             .collect(Collectors.toSet());
-    assertEquals(n, idSet.size());
-    for (int i = 1; i <= n; i++) {
-      assertTrue(idSet.contains(i));
+    assertEquals(expected.size(), idSet.size());
+    for (Integer e : expected) {
+      assertTrue(idSet.contains(e));
     }
   }
 }
