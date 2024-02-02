@@ -18,6 +18,8 @@
  
 package io.onetable.hudi.extensions;
 
+import static io.onetable.hudi.extensions.ParquetWriteSupportUtils.addFieldIdsToParquetSchema;
+
 import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.spark.sql.types.StructType;
@@ -48,22 +50,11 @@ public class HoodieRowParquetWriteSupportWithFieldIds extends HoodieRowParquetWr
     this.writeConfig = config;
   }
 
-  public HoodieRowParquetWriteSupportWithFieldIds(
-      Configuration conf,
-      Schema avroSchema,
-      Option<BloomFilter> bloomFilterOpt,
-      HoodieWriteConfig config) {
-    super(conf, avroSchema, bloomFilterOpt, config);
-    this.avroSchema = avroSchema;
-    this.writeConfig = config;
-  }
-
   @Override
   public WriteContext init(Configuration configuration) {
     WriteContext superWriteContext = super.init(configuration);
     return new WriteContext(
-        HoodieAvroWriteSupportWithFieldIds.addFieldIdsToParquetSchema(
-            superWriteContext.getSchema(), avroSchema, () -> writeConfig),
+        addFieldIdsToParquetSchema(superWriteContext.getSchema(), avroSchema, writeConfig),
         superWriteContext.getExtraMetaData());
   }
 }
