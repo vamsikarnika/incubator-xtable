@@ -75,7 +75,7 @@ public class ParquetWriteSupportUtils {
         .orElse(messageType);
   }
 
-  protected static MappedField toMappedField(IdMapping idMapping) {
+  private static MappedField toMappedField(IdMapping idMapping) {
     MappedFields nestedFields =
         idMapping.getFields() == null
             ? null
