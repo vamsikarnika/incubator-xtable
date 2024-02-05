@@ -39,7 +39,7 @@ import org.apache.hudi.io.storage.row.HoodieRowParquetWriteSupport;
  */
 public class HoodieRowParquetWriteSupportWithFieldIds extends HoodieRowParquetWriteSupport {
   private final Schema avroSchema;
-  private final HoodieConfig config;
+  private final HoodieWriteConfig writeConfig;
 
   public HoodieRowParquetWriteSupportWithFieldIds(
       Configuration conf,
@@ -48,17 +48,18 @@ public class HoodieRowParquetWriteSupportWithFieldIds extends HoodieRowParquetWr
       HoodieConfig config) {
     super(conf, structType, bloomFilterOpt, config);
     this.avroSchema = AvroConversionUtils.convertStructTypeToAvroSchema(structType, "spark_schema");
-    this.config = config;
+    try {
+      this.writeConfig = HoodieWriteConfig.newBuilder().withProperties(config.getProps()).build();
+    } catch (Exception e) {
+      throw new IllegalStateException("HoodieConfig cannot be converted to HoodieWriteConfig", e);
+    }
   }
 
   @Override
   public WriteContext init(Configuration configuration) {
     WriteContext superWriteContext = super.init(configuration);
     return new WriteContext(
-        addFieldIdsToParquetSchema(
-            superWriteContext.getSchema(),
-            avroSchema,
-            HoodieWriteConfig.newBuilder().withProperties(config.getProps()).build()),
+        addFieldIdsToParquetSchema(superWriteContext.getSchema(), avroSchema, writeConfig),
         superWriteContext.getExtraMetaData());
   }
 }
