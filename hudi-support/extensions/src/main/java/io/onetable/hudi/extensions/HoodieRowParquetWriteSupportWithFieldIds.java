@@ -26,6 +26,7 @@ import org.apache.spark.sql.types.StructType;
 
 import org.apache.hudi.AvroConversionUtils;
 import org.apache.hudi.common.bloom.BloomFilter;
+import org.apache.hudi.common.config.HoodieConfig;
 import org.apache.hudi.common.util.Option;
 import org.apache.hudi.config.HoodieWriteConfig;
 import org.apache.hudi.io.storage.row.HoodieRowParquetWriteSupport;
@@ -38,23 +39,26 @@ import org.apache.hudi.io.storage.row.HoodieRowParquetWriteSupport;
  */
 public class HoodieRowParquetWriteSupportWithFieldIds extends HoodieRowParquetWriteSupport {
   private final Schema avroSchema;
-  private final HoodieWriteConfig writeConfig;
+  private final HoodieConfig config;
 
   public HoodieRowParquetWriteSupportWithFieldIds(
       Configuration conf,
       StructType structType,
       Option<BloomFilter> bloomFilterOpt,
-      HoodieWriteConfig config) {
+      HoodieConfig config) {
     super(conf, structType, bloomFilterOpt, config);
     this.avroSchema = AvroConversionUtils.convertStructTypeToAvroSchema(structType, "spark_schema");
-    this.writeConfig = config;
+    this.config = config;
   }
 
   @Override
   public WriteContext init(Configuration configuration) {
     WriteContext superWriteContext = super.init(configuration);
     return new WriteContext(
-        addFieldIdsToParquetSchema(superWriteContext.getSchema(), avroSchema, writeConfig),
+        addFieldIdsToParquetSchema(
+            superWriteContext.getSchema(),
+            avroSchema,
+            HoodieWriteConfig.newBuilder().withProperties(config.getProps()).build()),
         superWriteContext.getExtraMetaData());
   }
 }

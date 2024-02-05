@@ -84,12 +84,12 @@ public class TestParquetWriteSupportUtils {
     checkMessageType(fullMessageTypeWithIds, Arrays.asList(1, 2, 3));
 
     // test with ID tracking with dropped column
-    Schema dropBSchema = HoodieAvroUtils.generateProjectionSchema(fullSchema, Arrays.asList("a", "c"));
+    Schema dropBSchema =
+        HoodieAvroUtils.generateProjectionSchema(fullSchema, Arrays.asList("a", "c"));
     MessageType dropBmessage = new AvroSchemaConverter().convert(dropBSchema);
     assertNoID(dropBmessage);
     MessageType dropBmessageWithIds =
-        ParquetWriteSupportUtils.addFieldIdsToParquetSchema(
-            dropBmessage, fullSchemaWithId, null);
+        ParquetWriteSupportUtils.addFieldIdsToParquetSchema(dropBmessage, fullSchemaWithId, null);
     checkMessageType(dropBmessageWithIds, Arrays.asList(1, 3));
   }
 
