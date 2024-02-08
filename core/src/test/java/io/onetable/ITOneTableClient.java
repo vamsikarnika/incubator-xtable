@@ -436,7 +436,7 @@ public class ITOneTableClient {
         Arguments.of(
             buildArgsForPartition(
                 ICEBERG, Arrays.asList(DELTA, HUDI), null, "level:VALUE", levelFilter)),
-        //Different issue, didn't investigate this much at all
+        // Different issue, didn't investigate this much at all
         //        Arguments.of(
         //            // Delta Lake does not currently support nested partition columns
         //            buildArgsForPartition(
@@ -452,7 +452,7 @@ public class ITOneTableClient {
                 "severity:SIMPLE",
                 "severity:VALUE",
                 severityFilter)));
-    //[ENG-6555] addresses this
+    // [ENG-6555] addresses this
     //                severityFilter)),
     //        Arguments.of(
     //            buildArgsForPartition(
