@@ -49,3 +49,10 @@ c8ced36 Upgrade to version release-v0.3.1
 ---[2024-01-31 12:36:21] [release-v0.4.1] ---
 e3e729a [ENG-6248] fix parsing issues when reading metadata (#18)
 897eb1e Upgrade to version release-v0.4.0 (#16)
+
+---[2024-02-08 23:25:01] [release-v0.5.0] ---
+653f1c3 [ENG-6525] Fix data file extraction from Hudi restore metadata with log files (#22)
+fa0104c [ENG-4534] Add row writer support (#20)
+0a82807 [ENG-4534] Build onetable-internal with hudi-internal (#21)
+7d41456 Upgrade to version release-v0.4.1 (#19)
+
