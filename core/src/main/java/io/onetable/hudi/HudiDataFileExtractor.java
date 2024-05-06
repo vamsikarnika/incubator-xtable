@@ -158,6 +158,9 @@ public class HudiDataFileExtractor implements AutoCloseable {
           HoodieCommitMetadata commitMetadata =
               HoodieCommitMetadata.fromBytes(
                   timeline.getInstantDetails(instant).get(), HoodieCommitMetadata.class);
+          // pre-load all partitions to cut down on repeated reads if Hudi Metadata is enabled
+          fsView.loadPartitions(
+              new ArrayList<>(commitMetadata.getPartitionToWriteStats().keySet()));
           commitMetadata
               .getPartitionToWriteStats()
               .forEach(
@@ -181,7 +184,9 @@ public class HudiDataFileExtractor implements AutoCloseable {
           HoodieReplaceCommitMetadata replaceMetadata =
               HoodieReplaceCommitMetadata.fromBytes(
                   timeline.getInstantDetails(instant).get(), HoodieReplaceCommitMetadata.class);
-
+          // pre-load all partitions to cut down on repeated reads if Hudi Metadata is enabled
+          fsView.loadPartitions(
+              new ArrayList<>(replaceMetadata.getPartitionToReplaceFileIds().keySet()));
           replaceMetadata
               .getPartitionToReplaceFileIds()
               .forEach(

@@ -469,7 +469,8 @@ public class HudiTargetClient implements TargetClient {
                 Collections.emptyMap(),
                 CleanPlanner.LATEST_CLEAN_PLAN_VERSION,
                 cleanInfoPerPartition,
-                Collections.emptyList());
+                Collections.emptyList(),
+                Collections.emptyMap());
         // create a clean instant and mark it as requested with the clean plan
         HoodieInstant requestedCleanInstant =
             new HoodieInstant(
@@ -499,7 +500,8 @@ public class HudiTargetClient implements TargetClient {
                     })
                 .collect(Collectors.toList());
         HoodieCleanMetadata cleanMetadata =
-            CleanerUtils.convertCleanMetadata(cleanTime, Option.empty(), cleanStats);
+            CleanerUtils.convertCleanMetadata(
+                cleanTime, Option.empty(), cleanStats, Collections.emptyMap());
         // update the metadata table with the clean metadata so the files' metadata are marked for
         // deletion
         hoodieTableMetadataWriter.performTableServices(Option.empty());
