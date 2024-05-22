@@ -25,6 +25,8 @@ import java.util.Map;
 
 import lombok.AllArgsConstructor;
 
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+
 import io.onetable.model.schema.OneField;
 import io.onetable.model.schema.OnePartitionField;
 import io.onetable.model.schema.OneSchema;
@@ -37,6 +39,7 @@ import io.onetable.schema.SchemaFieldFinder;
 @AllArgsConstructor
 public class ConfigurationBasedPartitionSpecExtractor implements HudiSourcePartitionSpecExtractor {
   private final HudiSourceConfig config;
+  private final HoodieTableMetaClient metaClient;
 
   @Override
   public List<OnePartitionField> spec(OneSchema tableSchema) {

@@ -26,6 +26,8 @@ import java.util.Locale;
 import lombok.Builder;
 import lombok.Value;
 
+import org.apache.hudi.common.table.HoodieTableMetaClient;
+
 import com.google.common.base.Preconditions;
 
 import io.onetable.model.schema.PartitionTransformType;
@@ -71,9 +73,10 @@ public class HudiSourceConfig {
     return partitionFields;
   }
 
-  public HudiSourcePartitionSpecExtractor loadSourcePartitionSpecExtractor() {
+  public HudiSourcePartitionSpecExtractor loadSourcePartitionSpecExtractor(
+      HoodieTableMetaClient metaClient) {
     Preconditions.checkNotNull(
         partitionSpecExtractorClass, "HudiSourcePartitionSpecExtractor class not provided");
-    return ReflectionUtils.createInstanceOfClass(partitionSpecExtractorClass, this);
+    return ReflectionUtils.createInstanceOfClass(partitionSpecExtractorClass, this, metaClient);
   }
 }
