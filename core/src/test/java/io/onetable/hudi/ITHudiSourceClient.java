@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -74,6 +76,7 @@ import io.onetable.model.TableChange;
  * A suite of functional tests that the extraction from Hudi to Intermediate representation works.
  */
 public class ITHudiSourceClient {
+  private static final ExecutorService EXECUTOR_SERVICE = Executors.newFixedThreadPool(10);
   @TempDir public static Path tempDir;
   private static JavaSparkContext jsc;
   private static SparkSession sparkSession;
@@ -98,6 +101,9 @@ public class ITHudiSourceClient {
     }
     if (sparkSession != null) {
       sparkSession.close();
+    }
+    if (EXECUTOR_SERVICE != null) {
+      EXECUTOR_SERVICE.shutdown();
     }
   }
 
@@ -559,7 +565,7 @@ public class ITHudiSourceClient {
         new ConfigurationBasedPartitionSpecExtractor(
             HudiSourceConfig.builder().partitionFieldSpecConfig(onetablePartitionConfig).build(),
             hoodieTableMetaClient);
-    return new HudiClient(hoodieTableMetaClient, partitionSpecExtractor);
+    return new HudiClient(hoodieTableMetaClient, partitionSpecExtractor, EXECUTOR_SERVICE);
   }
 
   private boolean checkIfNewFileGroupIsAdded(String activePath, TableChange tableChange) {

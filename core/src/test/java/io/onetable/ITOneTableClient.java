@@ -100,6 +100,8 @@ public class ITOneTableClient {
   private static JavaSparkContext jsc;
   private static SparkSession sparkSession;
 
+  private static OneTableClient oneTableClient;
+
   @BeforeAll
   public static void setupOnce() {
     SparkConf sparkConf = HudiTestUtil.getSparkConf(tempDir);
@@ -110,10 +112,14 @@ public class ITOneTableClient {
         .hadoopConfiguration()
         .set("parquet.avro.write-old-list-structure", "false");
     jsc = JavaSparkContext.fromSparkContext(sparkSession.sparkContext());
+    oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
   }
 
   @AfterAll
   public static void teardown() {
+    if (oneTableClient != null) {
+      oneTableClient.close();
+    }
     if (jsc != null) {
       jsc.close();
     }
@@ -176,7 +182,6 @@ public class ITOneTableClient {
   public void testVariousOperations(
       String sourceTableFormat, SyncMode syncMode, boolean isPartitioned) {
     String tableName = getTableName();
-    OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
     List<String> targetTableFormats = getOtherFormats(sourceTableFormat);
     String oneTablePartitionConfig = null;
     if (isPartitioned) {
@@ -290,7 +295,7 @@ public class ITOneTableClient {
                       .build())
               .syncMode(syncMode)
               .build();
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+
       oneTableClient.sync(perTableConfig, sourceClientProvider);
 
       checkDatasetEquivalence(HUDI, table, targetTableFormats, 50);
@@ -324,7 +329,7 @@ public class ITOneTableClient {
                       .build())
               .syncMode(syncMode)
               .build();
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+
       oneTableClient.sync(perTableConfig, sourceClientProvider);
       checkDatasetEquivalence(HUDI, table, targetTableFormats, 50);
 
@@ -369,7 +374,7 @@ public class ITOneTableClient {
               .syncMode(SyncMode.INCREMENTAL)
               .build();
       SourceClientProvider<?> sourceClientProvider = getSourceClientProvider(sourceTableFormat);
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+
       oneTableClient.sync(perTableConfig, sourceClientProvider);
       Instant instantAfterFirstSync = Instant.now();
       // sleep before starting the next commit to avoid any rounding issues
@@ -496,7 +501,7 @@ public class ITOneTableClient {
               .syncMode(SyncMode.INCREMENTAL)
               .build();
       tableToClose.insertRows(100);
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+
       oneTableClient.sync(perTableConfig, sourceClientProvider);
       // Do a second sync to force the test to read back the metadata it wrote earlier
       tableToClose.insertRows(100);
@@ -533,7 +538,6 @@ public class ITOneTableClient {
               .syncMode(syncMode)
               .build();
 
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
       oneTableClient.sync(perTableConfigIceberg, sourceClientProvider);
       checkDatasetEquivalence(HUDI, table, Collections.singletonList(ICEBERG), 100);
       oneTableClient.sync(perTableConfigDelta, sourceClientProvider);
@@ -571,7 +575,7 @@ public class ITOneTableClient {
               .build();
 
       table.insertRecords(50, true);
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+
       // sync iceberg only
       oneTableClient.sync(singleTableConfig, sourceClientProvider);
       checkDatasetEquivalence(HUDI, table, Collections.singletonList(ICEBERG), 50);
@@ -605,7 +609,7 @@ public class ITOneTableClient {
         TestJavaHudiTable.forStandardSchema(
             tableName, tempDir, null, HoodieTableType.COPY_ON_WRITE)) {
       table.insertRows(20);
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+
       PerTableConfig perTableConfig =
           PerTableConfig.builder()
               .tableName(tableName)
@@ -647,7 +651,7 @@ public class ITOneTableClient {
               .syncMode(SyncMode.INCREMENTAL)
               .targetMetadataRetentionInHours(0) // force cleanup
               .build();
-      OneTableClient oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+
       table.insertRecords(10, true);
       oneTableClient.sync(perTableConfig, sourceClientProvider);
       // later we will ensure we can still read the source table at this instant to ensure that

@@ -39,8 +39,11 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.stream.IntStream;
 
 import org.apache.avro.Conversions;
 import org.apache.avro.Schema;
@@ -51,6 +54,7 @@ import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -66,6 +70,7 @@ import org.apache.hudi.common.util.Option;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 
 import io.onetable.TestJavaHudiTable;
+import io.onetable.constants.OneTableConstants;
 import io.onetable.model.schema.OneField;
 import io.onetable.model.schema.OneSchema;
 import io.onetable.model.schema.OneType;
@@ -119,6 +124,8 @@ public class TestHudiFileStatsExtractor {
                   decimalField))
           .build();
 
+  private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+
   @Test
   void columnStatsWithMetadataTable(@TempDir Path tempDir) throws Exception {
     String tableName = getTableName();
@@ -154,50 +161,84 @@ public class TestHudiFileStatsExtractor {
             .build();
     HoodieTableMetaClient metaClient =
         HoodieTableMetaClient.builder().setBasePath(basePath).setConf(configuration).build();
-    HudiFileStatsExtractor fileStatsExtractor = new HudiFileStatsExtractor(metaClient);
+    HudiFileStatsExtractor fileStatsExtractor =
+        new HudiFileStatsExtractor(metaClient, executorService);
     List<OneDataFile> output =
-        fileStatsExtractor
-            .addStatsToFiles(tableMetadata, Stream.of(inputFile), schema)
-            .collect(Collectors.toList());
+        fileStatsExtractor.addStatsToFiles(
+            tableMetadata, Collections.singletonList(inputFile), schema);
     validateOutput(output);
   }
 
   @Test
   void columnStatsWithoutMetadataTable(@TempDir Path tempDir) throws IOException {
-    Path file = tempDir.resolve("tmp.parquet");
-    GenericData genericData = GenericData.get();
-    genericData.addLogicalTypeConversion(new Conversions.DecimalConversion());
-    try (ParquetWriter<GenericRecord> writer =
-        AvroParquetWriter.<GenericRecord>builder(
-                HadoopOutputFile.fromPath(
-                    new org.apache.hadoop.fs.Path(file.toUri()), configuration))
-            .withSchema(AVRO_SCHEMA)
-            .withDataModel(genericData)
-            .build()) {
-      for (GenericRecord record : getRecords()) {
-        writer.write(record);
-      }
-    }
-
-    OneDataFile inputFile =
-        OneDataFile.builder()
-            .physicalPath(file.toString())
-            .schemaVersion(new SchemaVersion(1, null))
-            .columnStats(Collections.emptyList())
-            .fileFormat(FileFormat.APACHE_PARQUET)
-            .lastModified(1234L)
-            .fileSizeBytes(4321L)
-            .recordCount(0)
-            .build();
-
     HoodieTableMetaClient mockMetaClient = mock(HoodieTableMetaClient.class);
     when(mockMetaClient.getHadoopConf()).thenReturn(configuration);
-    HudiFileStatsExtractor fileStatsExtractor = new HudiFileStatsExtractor(mockMetaClient);
+    HudiFileStatsExtractor fileStatsExtractor =
+        new HudiFileStatsExtractor(mockMetaClient, executorService);
     List<OneDataFile> output =
-        fileStatsExtractor
-            .addStatsToFiles(null, Stream.of(inputFile), schema)
-            .collect(Collectors.toList());
+        fileStatsExtractor.addStatsToFiles(null, generateInputFiles(tempDir, 1), schema);
     validateOutput(output);
+  }
+
+  @Test
+  @Disabled("This test can be used for validating performance, disabling it as it's flaky in GH")
+  void columnStatsWithoutMetadataTableParallelized10KFiles(@TempDir Path tempDir)
+      throws IOException {
+    int numFiles = 10000;
+    HoodieTableMetaClient mockMetaClient = mock(HoodieTableMetaClient.class);
+    when(mockMetaClient.getHadoopConf()).thenReturn(configuration);
+    HudiFileStatsExtractor fileStatsExtractor =
+        new HudiFileStatsExtractor(
+            mockMetaClient, Executors.newFixedThreadPool(OneTableConstants.DEFAULT_PARALLELISM));
+    List<OneDataFile> inputDataFiles = generateInputFiles(tempDir, numFiles);
+    long startTime = System.nanoTime();
+    List<OneDataFile> output = fileStatsExtractor.addStatsToFiles(null, inputDataFiles, schema);
+    long endTime = System.nanoTime();
+    assertEquals(numFiles, output.size());
+    long actualDuration = endTime - startTime;
+    long expectedDuration = TimeUnit.NANOSECONDS.convert(1, TimeUnit.SECONDS);
+    assertTrue(
+        actualDuration <= expectedDuration,
+        "Time duration for test is greater than 1sec " + actualDuration);
+  }
+
+  private List<OneDataFile> generateInputFiles(@TempDir Path tempDir, int numFiles)
+      throws IOException {
+    return IntStream.range(0, numFiles)
+        .boxed()
+        .parallel()
+        .map(
+            i -> {
+              Path file = tempDir.resolve(String.format("tmp-%d.parquet", i));
+              GenericData genericData = GenericData.get();
+              genericData.addLogicalTypeConversion(new Conversions.DecimalConversion());
+              try (ParquetWriter<GenericRecord> writer =
+                  AvroParquetWriter.<GenericRecord>builder(
+                          HadoopOutputFile.fromPath(
+                              new org.apache.hadoop.fs.Path(file.toUri()), configuration))
+                      .withSchema(AVRO_SCHEMA)
+                      .withDataModel(genericData)
+                      .build()) {
+                for (GenericRecord record : getRecords()) {
+                  writer.write(record);
+                }
+              } catch (IOException e) {
+                throw new RuntimeException(e);
+              }
+              return file;
+            })
+        .map(
+            file ->
+                OneDataFile.builder()
+                    .physicalPath(file.toString())
+                    .schemaVersion(new SchemaVersion(1, null))
+                    .columnStats(Collections.emptyList())
+                    .fileFormat(FileFormat.APACHE_PARQUET)
+                    .lastModified(1234L)
+                    .fileSizeBytes(4321L)
+                    .recordCount(0)
+                    .build())
+        .collect(Collectors.toList());
   }
 
   private void validateOutput(List<OneDataFile> output) {

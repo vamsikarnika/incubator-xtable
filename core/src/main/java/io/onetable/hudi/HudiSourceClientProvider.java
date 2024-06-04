@@ -18,6 +18,9 @@
  
 package io.onetable.hudi;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
+
 import lombok.extern.log4j.Log4j2;
 
 import org.apache.hudi.common.model.HoodieTableType;
@@ -26,13 +29,20 @@ import org.apache.hudi.common.table.timeline.HoodieInstant;
 
 import io.onetable.client.PerTableConfig;
 import io.onetable.client.SourceClientProvider;
+import io.onetable.spi.extractor.SourceClient;
 
 /** A concrete implementation of {@link SourceClientProvider} for Hudi table format. */
 @Log4j2
 public class HudiSourceClientProvider extends SourceClientProvider<HoodieInstant> {
 
   @Override
-  public HudiClient getSourceClientInstance(PerTableConfig sourceTableConfig) {
+  public SourceClient<HoodieInstant> getSourceClientInstance(PerTableConfig sourceTableConfig) {
+    return getSourceClientInstance(sourceTableConfig, ForkJoinPool.commonPool());
+  }
+
+  @Override
+  public HudiClient getSourceClientInstance(
+      PerTableConfig sourceTableConfig, ExecutorService executorService) {
     this.sourceTableConfig = sourceTableConfig;
     HoodieTableMetaClient metaClient =
         HoodieTableMetaClient.builder()
@@ -47,6 +57,6 @@ public class HudiSourceClientProvider extends SourceClientProvider<HoodieInstant
     final HudiSourcePartitionSpecExtractor sourcePartitionSpecExtractor =
         sourceTableConfig.getHudiSourceConfig().loadSourcePartitionSpecExtractor(metaClient);
 
-    return new HudiClient(metaClient, sourcePartitionSpecExtractor);
+    return new HudiClient(metaClient, sourcePartitionSpecExtractor, executorService);
   }
 }

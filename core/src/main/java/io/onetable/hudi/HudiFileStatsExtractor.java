@@ -29,9 +29,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import lombok.AllArgsConstructor;
 import lombok.NonNull;
@@ -49,6 +49,7 @@ import org.apache.hudi.hadoop.CachingPath;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 import org.apache.hudi.metadata.MetadataPartitionType;
 
+import io.onetable.collectors.CustomCollectors;
 import io.onetable.model.schema.OneField;
 import io.onetable.model.schema.OneSchema;
 import io.onetable.model.schema.OneType;
@@ -75,6 +76,7 @@ public class HudiFileStatsExtractor {
   private static final String PARQUET_ELMENT_DOT_FIELD = ".list.element.";
 
   @NonNull private final HoodieTableMetaClient metaClient;
+  private final ExecutorService executorService;
 
   /**
    * Adds column stats and row count information to the provided stream of files.
@@ -84,8 +86,8 @@ public class HudiFileStatsExtractor {
    * @param schema the schema of the files (assumed to be the same for all files in stream)
    * @return a stream of files with column stats and row count information
    */
-  public Stream<OneDataFile> addStatsToFiles(
-      HoodieTableMetadata metadataTable, Stream<OneDataFile> files, OneSchema schema) {
+  public List<OneDataFile> addStatsToFiles(
+      HoodieTableMetadata metadataTable, List<OneDataFile> files, OneSchema schema) {
     boolean useMetadataTableColStats =
         metadataTable != null
             && metaClient
@@ -102,9 +104,10 @@ public class HudiFileStatsExtractor {
         : computeColumnStatsFromParquetFooters(files, nameFieldMap);
   }
 
-  private Stream<OneDataFile> computeColumnStatsFromParquetFooters(
-      Stream<OneDataFile> files, Map<String, OneField> nameFieldMap) {
-    return files.map(
+  private List<OneDataFile> computeColumnStatsFromParquetFooters(
+      List<OneDataFile> files, Map<String, OneField> nameFieldMap) {
+    return CustomCollectors.mapAsync(
+        files,
         file -> {
           HudiFileStats fileStats =
               computeColumnStatsForFile(new Path(file.getPhysicalPath()), nameFieldMap);
@@ -112,7 +115,8 @@ public class HudiFileStatsExtractor {
               .columnStats(fileStats.getColumnStats())
               .recordCount(fileStats.getRowCount())
               .build();
-        });
+        },
+        executorService);
   }
 
   private Pair<String, String> getPartitionAndFileName(String path) {
@@ -121,21 +125,22 @@ public class HudiFileStatsExtractor {
     return Pair.of(partitionPath, filePath.getName());
   }
 
-  private Stream<OneDataFile> computeColumnStatsFromMetadataTable(
+  private List<OneDataFile> computeColumnStatsFromMetadataTable(
       HoodieTableMetadata metadataTable,
-      Stream<OneDataFile> files,
+      List<OneDataFile> files,
       Map<String, OneField> nameFieldMap) {
     Map<Pair<String, String>, OneDataFile> filePathsToDataFile =
-        files.collect(
-            Collectors.toMap(
-                file -> getPartitionAndFileName(file.getPhysicalPath()), Function.identity()));
+        files.stream()
+            .collect(
+                Collectors.toMap(
+                    file -> getPartitionAndFileName(file.getPhysicalPath()), Function.identity()));
     if (filePathsToDataFile.isEmpty()) {
-      return Stream.empty();
+      return Collections.emptyList();
     }
     List<Pair<String, String>> filePaths = new ArrayList<>(filePathsToDataFile.keySet());
     Map<Pair<String, String>, List<Pair<OneField, HoodieMetadataColumnStats>>> stats =
-        nameFieldMap.entrySet().parallelStream()
-            .flatMap(
+        CustomCollectors.mapAsync(
+                nameFieldMap.entrySet(),
                 fieldNameToField -> {
                   String fieldName = fieldNameToField.getKey();
                   OneField field = fieldNameToField.getValue();
@@ -145,11 +150,15 @@ public class HudiFileStatsExtractor {
                               Pair.of(
                                   filePairToStats.getKey(),
                                   Pair.of(field, filePairToStats.getValue())));
-                })
+                },
+                executorService)
+            .stream()
+            .flatMap(r -> r)
             .collect(
                 Collectors.groupingBy(
                     Map.Entry::getKey,
                     Collectors.mapping(Map.Entry::getValue, toList(nameFieldMap.size()))));
+
     return filePathsToDataFile.entrySet().stream()
         .map(
             pathToDataFile -> {
@@ -163,7 +172,8 @@ public class HudiFileStatsExtractor {
                       .collect(toList(fileStats.size()));
               long recordCount = getMaxFromColumnStats(columnStats).orElse(0L);
               return file.toBuilder().columnStats(columnStats).recordCount(recordCount).build();
-            });
+            })
+        .collect(Collectors.toList());
   }
 
   private Optional<Long> getMaxFromColumnStats(List<ColumnStat> columnStats) {

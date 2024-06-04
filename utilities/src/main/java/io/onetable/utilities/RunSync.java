@@ -141,32 +141,33 @@ public class RunSync {
     sourceClientProvider.init(hadoopConf, sourceClientConfig.configuration);
 
     List<String> tableFormatList = datasetConfig.getTargetFormats();
-    OneTableClient client = new OneTableClient(hadoopConf);
-    for (DatasetConfig.Table table : datasetConfig.getDatasets()) {
-      log.info(
-          "Running sync for basePath {} for following table formats {}",
-          table.getTableBasePath(),
-          tableFormatList);
-      PerTableConfig config =
-          PerTableConfig.builder()
-              .tableBasePath(table.getTableBasePath())
-              .tableName(table.getTableName())
-              .namespace(table.getNamespace() == null ? null : table.getNamespace().split("\\."))
-              .tableDataPath(table.getTableDataPath())
-              .icebergCatalogConfig(icebergCatalogConfig)
-              .hudiSourceConfig(
-                  HudiSourceConfig.builder()
-                      .partitionSpecExtractorClass(
-                          ConfigurationBasedPartitionSpecExtractor.class.getName())
-                      .partitionFieldSpecConfig(table.getPartitionSpec())
-                      .build())
-              .targetTableFormats(tableFormatList)
-              .syncMode(SyncMode.INCREMENTAL)
-              .build();
-      try {
-        client.sync(config, sourceClientProvider);
-      } catch (Exception e) {
-        log.error(String.format("Error running sync for %s", table.getTableBasePath()), e);
+    try (OneTableClient client = new OneTableClient(hadoopConf)) {
+      for (DatasetConfig.Table table : datasetConfig.getDatasets()) {
+        log.info(
+            "Running sync for basePath {} for following table formats {}",
+            table.getTableBasePath(),
+            tableFormatList);
+        PerTableConfig config =
+            PerTableConfig.builder()
+                .tableBasePath(table.getTableBasePath())
+                .tableName(table.getTableName())
+                .namespace(table.getNamespace() == null ? null : table.getNamespace().split("\\."))
+                .tableDataPath(table.getTableDataPath())
+                .icebergCatalogConfig(icebergCatalogConfig)
+                .hudiSourceConfig(
+                    HudiSourceConfig.builder()
+                        .partitionSpecExtractorClass(
+                            ConfigurationBasedPartitionSpecExtractor.class.getName())
+                        .partitionFieldSpecConfig(table.getPartitionSpec())
+                        .build())
+                .targetTableFormats(tableFormatList)
+                .syncMode(SyncMode.INCREMENTAL)
+                .build();
+        try {
+          client.sync(config, sourceClientProvider);
+        } catch (Exception e) {
+          log.error(String.format("Error running sync for %s", table.getTableBasePath()), e);
+        }
       }
     }
   }

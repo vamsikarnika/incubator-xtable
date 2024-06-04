@@ -64,8 +64,9 @@ public class LoadTest {
     int numPartitions = 1000;
     int numFilesPerPartition = 100;
     try (TestJavaHudiTable table =
-        TestJavaHudiTable.forStandardSchema(
-            tableName, tempDir, "level:SIMPLE", HoodieTableType.COPY_ON_WRITE)) {
+            TestJavaHudiTable.forStandardSchema(
+                tableName, tempDir, "level:SIMPLE", HoodieTableType.COPY_ON_WRITE);
+        OneTableClient oneTableClient = new OneTableClient(CONFIGURATION)) {
       for (int i = 0; i < numFilesPerPartition; i++) {
         table.insertRecords(
             1,
@@ -81,7 +82,7 @@ public class LoadTest {
               .tableBasePath(table.getBasePath())
               .syncMode(SyncMode.FULL)
               .build();
-      OneTableClient oneTableClient = new OneTableClient(CONFIGURATION);
+
       long start = System.currentTimeMillis();
       oneTableClient.sync(perTableConfig, hudiSourceClientProvider);
       long end = System.currentTimeMillis();
@@ -100,8 +101,9 @@ public class LoadTest {
             .archiveCommitsWith(numCommits + 1, numCommits + 10)
             .build();
     try (TestJavaHudiTable table =
-        TestJavaHudiTable.forStandardSchema(
-            tableName, tempDir, "level:SIMPLE", HoodieTableType.COPY_ON_WRITE, archivalConfig)) {
+            TestJavaHudiTable.forStandardSchema(
+                tableName, tempDir, "level:SIMPLE", HoodieTableType.COPY_ON_WRITE, archivalConfig);
+        OneTableClient oneTableClient = new OneTableClient(CONFIGURATION)) {
       table.insertRecords(1, "partition0", false);
       PerTableConfig perTableConfig =
           PerTableConfig.builder()
@@ -111,7 +113,6 @@ public class LoadTest {
               .syncMode(SyncMode.INCREMENTAL)
               .build();
       // sync once to establish first commit
-      OneTableClient oneTableClient = new OneTableClient(CONFIGURATION);
       oneTableClient.sync(perTableConfig, hudiSourceClientProvider);
       for (int i = 0; i < numCommits; i++) {
         table.insertRecords(

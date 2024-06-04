@@ -19,12 +19,44 @@
 package io.onetable.collectors;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.function.Function;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+
+import javax.annotation.Nonnull;
 
 public class CustomCollectors {
   public static <T> Collector<T, ?, List<T>> toList(int size) {
     return Collectors.toCollection(() -> new ArrayList<>(size));
+  }
+
+  @Nonnull
+  public static <T, R> List<R> mapAsync(
+      @Nonnull Collection<T> items,
+      @Nonnull Function<T, R> transformer,
+      ExecutorService executorService) {
+    return allOf(
+            items.stream()
+                .map(
+                    item ->
+                        CompletableFuture.supplyAsync(
+                            () -> transformer.apply(item), executorService))
+                .collect(Collectors.toList()))
+        .join();
+  }
+
+  public static <T> CompletableFuture<List<T>> allOf(@Nonnull List<CompletableFuture<T>> futures) {
+    return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+        .thenApply(
+            aVoid ->
+                futures.stream()
+                    // NOTE: This join wouldn't block, since all the
+                    //       futures are completed at this point
+                    .map(CompletableFuture::join)
+                    .collect(Collectors.toList()));
   }
 }

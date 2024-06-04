@@ -36,6 +36,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -68,6 +69,7 @@ public class TestOneTableClient {
   private final TableFormatSync tableFormatSync = mock(TableFormatSync.class);
   private final TargetClient mockTargetClient1 = mock(TargetClient.class);
   private final TargetClient mockTargetClient2 = mock(TargetClient.class);
+  private final ExecutorService mockExecutorService = mock(ExecutorService.class);
 
   @Test
   void testAllSnapshotSyncAsPerConfig() {
@@ -81,12 +83,13 @@ public class TestOneTableClient {
     perTableResults.put(TableFormat.DELTA, syncResult);
     PerTableConfig perTableConfig =
         getPerTableConfig(Arrays.asList(TableFormat.ICEBERG, TableFormat.DELTA), syncMode);
-    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig))
+    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig, mockExecutorService))
         .thenReturn(mockSourceClient);
     when(mockTableFormatClientFactory.createForFormat(
-            TableFormat.ICEBERG, perTableConfig, mockConf))
+            TableFormat.ICEBERG, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient1);
-    when(mockTableFormatClientFactory.createForFormat(TableFormat.DELTA, perTableConfig, mockConf))
+    when(mockTableFormatClientFactory.createForFormat(
+            TableFormat.DELTA, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient2);
     when(mockSourceClient.getCurrentSnapshot()).thenReturn(oneSnapshot);
     when(tableFormatSync.syncSnapshot(
@@ -94,7 +97,8 @@ public class TestOneTableClient {
             eq(oneSnapshot)))
         .thenReturn(perTableResults);
     OneTableClient oneTableClient =
-        new OneTableClient(mockConf, mockTableFormatClientFactory, tableFormatSync);
+        new OneTableClient(
+            mockConf, mockTableFormatClientFactory, tableFormatSync, mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(perTableResults, result);
   }
@@ -104,12 +108,13 @@ public class TestOneTableClient {
     SyncMode syncMode = SyncMode.INCREMENTAL;
     PerTableConfig perTableConfig =
         getPerTableConfig(Arrays.asList(TableFormat.ICEBERG, TableFormat.DELTA), syncMode);
-    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig))
+    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig, mockExecutorService))
         .thenReturn(mockSourceClient);
     when(mockTableFormatClientFactory.createForFormat(
-            TableFormat.ICEBERG, perTableConfig, mockConf))
+            TableFormat.ICEBERG, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient1);
-    when(mockTableFormatClientFactory.createForFormat(TableFormat.DELTA, perTableConfig, mockConf))
+    when(mockTableFormatClientFactory.createForFormat(
+            TableFormat.DELTA, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient2);
 
     Instant instantAsOfNow = Instant.now();
@@ -176,7 +181,8 @@ public class TestOneTableClient {
     expectedSyncResult.put(TableFormat.ICEBERG, getLastSyncResult(icebergSyncResults));
     expectedSyncResult.put(TableFormat.DELTA, getLastSyncResult(deltaSyncResults));
     OneTableClient oneTableClient =
-        new OneTableClient(mockConf, mockTableFormatClientFactory, tableFormatSync);
+        new OneTableClient(
+            mockConf, mockTableFormatClientFactory, tableFormatSync, mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(expectedSyncResult, result);
   }
@@ -193,12 +199,13 @@ public class TestOneTableClient {
     syncResults.put(TableFormat.DELTA, syncResult);
     PerTableConfig perTableConfig =
         getPerTableConfig(Arrays.asList(TableFormat.ICEBERG, TableFormat.DELTA), syncMode);
-    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig))
+    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig, mockExecutorService))
         .thenReturn(mockSourceClient);
     when(mockTableFormatClientFactory.createForFormat(
-            TableFormat.ICEBERG, perTableConfig, mockConf))
+            TableFormat.ICEBERG, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient1);
-    when(mockTableFormatClientFactory.createForFormat(TableFormat.DELTA, perTableConfig, mockConf))
+    when(mockTableFormatClientFactory.createForFormat(
+            TableFormat.DELTA, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient2);
 
     Instant instantAsOfNow = Instant.now();
@@ -217,7 +224,8 @@ public class TestOneTableClient {
             eq(oneSnapshot)))
         .thenReturn(syncResults);
     OneTableClient oneTableClient =
-        new OneTableClient(mockConf, mockTableFormatClientFactory, tableFormatSync);
+        new OneTableClient(
+            mockConf, mockTableFormatClientFactory, tableFormatSync, mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(syncResults, result);
   }
@@ -227,12 +235,13 @@ public class TestOneTableClient {
     SyncMode syncMode = SyncMode.INCREMENTAL;
     PerTableConfig perTableConfig =
         getPerTableConfig(Arrays.asList(TableFormat.ICEBERG, TableFormat.DELTA), syncMode);
-    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig))
+    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig, mockExecutorService))
         .thenReturn(mockSourceClient);
     when(mockTableFormatClientFactory.createForFormat(
-            TableFormat.ICEBERG, perTableConfig, mockConf))
+            TableFormat.ICEBERG, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient1);
-    when(mockTableFormatClientFactory.createForFormat(TableFormat.DELTA, perTableConfig, mockConf))
+    when(mockTableFormatClientFactory.createForFormat(
+            TableFormat.DELTA, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient2);
 
     Instant instantAsOfNow = Instant.now();
@@ -296,7 +305,8 @@ public class TestOneTableClient {
     expectedSyncResult.put(TableFormat.ICEBERG, syncResult);
     expectedSyncResult.put(TableFormat.DELTA, getLastSyncResult(deltaSyncResults));
     OneTableClient oneTableClient =
-        new OneTableClient(mockConf, mockTableFormatClientFactory, tableFormatSync);
+        new OneTableClient(
+            mockConf, mockTableFormatClientFactory, tableFormatSync, mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(expectedSyncResult, result);
   }
@@ -306,12 +316,13 @@ public class TestOneTableClient {
     SyncMode syncMode = SyncMode.INCREMENTAL;
     PerTableConfig perTableConfig =
         getPerTableConfig(Arrays.asList(TableFormat.ICEBERG, TableFormat.DELTA), syncMode);
-    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig))
+    when(mockSourceClientProvider.getSourceClientInstance(perTableConfig, mockExecutorService))
         .thenReturn(mockSourceClient);
     when(mockTableFormatClientFactory.createForFormat(
-            TableFormat.ICEBERG, perTableConfig, mockConf))
+            TableFormat.ICEBERG, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient1);
-    when(mockTableFormatClientFactory.createForFormat(TableFormat.DELTA, perTableConfig, mockConf))
+    when(mockTableFormatClientFactory.createForFormat(
+            TableFormat.DELTA, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(mockTargetClient2);
 
     Instant instantAsOfNow = Instant.now();
@@ -350,7 +361,8 @@ public class TestOneTableClient {
     // Iceberg and Delta have no commits to sync
     Map<String, SyncResult> expectedSyncResult = Collections.emptyMap();
     OneTableClient oneTableClient =
-        new OneTableClient(mockConf, mockTableFormatClientFactory, tableFormatSync);
+        new OneTableClient(
+            mockConf, mockTableFormatClientFactory, tableFormatSync, mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(expectedSyncResult, result);
   }

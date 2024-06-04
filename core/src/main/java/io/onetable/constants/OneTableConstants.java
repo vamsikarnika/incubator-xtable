@@ -32,4 +32,10 @@ public class OneTableConstants {
 
   /** OneTable meta directory inside table base path to store sync info. */
   public static final String ONETABLE_META_DIR = ".onetable";
+
+  /**
+   * The default parallelism to be used for dedicated executor service for running few operations
+   * concurrently
+   */
+  public static final Integer DEFAULT_PARALLELISM = 10;
 }

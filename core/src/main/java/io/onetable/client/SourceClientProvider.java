@@ -19,6 +19,7 @@
 package io.onetable.client;
 
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
 
 import org.apache.hadoop.conf.Configuration;
 
@@ -54,4 +55,15 @@ public abstract class SourceClientProvider<COMMIT> {
    * @return the source client
    */
   public abstract SourceClient<COMMIT> getSourceClientInstance(PerTableConfig sourceTableConfig);
+
+  /**
+   * Similar to above method of SourceClient#getSourceClientInstance(PerTableConfig
+   * sourceTableConfig) but a dedicated executor service can be passed.
+   *
+   * @return the source client
+   */
+  public SourceClient<COMMIT> getSourceClientInstance(
+      PerTableConfig sourceTableConfig, ExecutorService executorService) {
+    return getSourceClientInstance(sourceTableConfig);
+  }
 }

@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
 import lombok.Builder;
@@ -60,7 +61,8 @@ public class HudiClient implements SourceClient<HoodieInstant> {
 
   public HudiClient(
       HoodieTableMetaClient metaClient,
-      HudiSourcePartitionSpecExtractor sourcePartitionSpecExtractor) {
+      HudiSourcePartitionSpecExtractor sourcePartitionSpecExtractor,
+      ExecutorService executorService) {
     this.metaClient = metaClient;
     this.tableExtractor =
         new HudiTableExtractor(new HudiSchemaExtractor(), sourcePartitionSpecExtractor);
@@ -69,7 +71,8 @@ public class HudiClient implements SourceClient<HoodieInstant> {
             metaClient,
             new HudiPartitionValuesExtractor(
                 sourcePartitionSpecExtractor.getPathToPartitionFieldFormat()),
-            new HudiFileStatsExtractor(metaClient));
+            new HudiFileStatsExtractor(metaClient, executorService),
+            executorService);
   }
 
   @Override

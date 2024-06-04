@@ -26,6 +26,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -38,6 +40,7 @@ import lombok.extern.log4j.Log4j2;
 
 import org.apache.hadoop.conf.Configuration;
 
+import io.onetable.constants.OneTableConstants;
 import io.onetable.exception.OneIOException;
 import io.onetable.model.IncrementalTableChanges;
 import io.onetable.model.InstantsForIncrementalSync;
@@ -62,13 +65,26 @@ import io.onetable.spi.sync.TargetClient;
  */
 @Log4j2
 @RequiredArgsConstructor(access = AccessLevel.PACKAGE)
-public class OneTableClient {
+public class OneTableClient implements AutoCloseable {
   private final Configuration conf;
   private final TableFormatClientFactory tableFormatClientFactory;
   private final TableFormatSync tableFormatSync;
+  private final ExecutorService executorService;
 
   public OneTableClient(Configuration conf) {
-    this(conf, TableFormatClientFactory.getInstance(), TableFormatSync.getInstance());
+    this(
+        conf,
+        TableFormatClientFactory.getInstance(),
+        TableFormatSync.getInstance(),
+        Executors.newFixedThreadPool(OneTableConstants.DEFAULT_PARALLELISM));
+  }
+
+  public OneTableClient(Configuration conf, ExecutorService executorService) {
+    this(
+        conf,
+        TableFormatClientFactory.getInstance(),
+        TableFormatSync.getInstance(),
+        executorService);
   }
 
   /**
@@ -87,7 +103,8 @@ public class OneTableClient {
       throw new IllegalArgumentException("Please provide at-least one format to sync");
     }
 
-    try (SourceClient<COMMIT> sourceClient = sourceClientProvider.getSourceClientInstance(config)) {
+    try (SourceClient<COMMIT> sourceClient =
+        sourceClientProvider.getSourceClientInstance(config, executorService)) {
       ExtractFromSource<COMMIT> source = ExtractFromSource.of(sourceClient);
 
       Map<String, TargetClient> syncClientByFormat =
@@ -96,7 +113,8 @@ public class OneTableClient {
                   Collectors.toMap(
                       Function.identity(),
                       tableFormat ->
-                          tableFormatClientFactory.createForFormat(tableFormat, config, conf)));
+                          tableFormatClientFactory.createForFormat(
+                              tableFormat, config, conf, executorService)));
       // State for each TableFormat
       Map<String, Optional<OneTableMetadata>> lastSyncMetadataByFormat =
           syncClientByFormat.entrySet().stream()
@@ -263,6 +281,11 @@ public class OneTableClient {
         .lastSyncInstant(mostOutOfSyncCommit.get())
         .pendingCommits(allPendingInstants)
         .build();
+  }
+
+  @Override
+  public void close() {
+    executorService.shutdown();
   }
 
   @Value

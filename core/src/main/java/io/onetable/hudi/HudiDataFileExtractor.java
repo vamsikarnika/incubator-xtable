@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -60,6 +61,7 @@ import org.apache.hudi.common.table.view.SyncableFileSystemView;
 import org.apache.hudi.common.table.view.TableFileSystemView;
 import org.apache.hudi.metadata.HoodieTableMetadata;
 
+import io.onetable.collectors.CustomCollectors;
 import io.onetable.exception.OneIOException;
 import io.onetable.model.OneTable;
 import io.onetable.model.schema.OnePartitionField;
@@ -81,11 +83,13 @@ public class HudiDataFileExtractor implements AutoCloseable {
   private final HoodieMetadataConfig metadataConfig;
   private final FileSystemViewManager fileSystemViewManager;
   private final Path basePath;
+  private final ExecutorService executorService;
 
   public HudiDataFileExtractor(
       HoodieTableMetaClient metaClient,
       HudiPartitionValuesExtractor hudiPartitionValuesExtractor,
-      HudiFileStatsExtractor hudiFileStatsExtractor) {
+      HudiFileStatsExtractor hudiFileStatsExtractor,
+      ExecutorService executorService) {
     this.engineContext = new HoodieLocalEngineContext(metaClient.getHadoopConf());
     metadataConfig =
         HoodieMetadataConfig.newBuilder()
@@ -108,6 +112,7 @@ public class HudiDataFileExtractor implements AutoCloseable {
     this.metaClient = metaClient;
     this.partitionValuesExtractor = hudiPartitionValuesExtractor;
     this.fileStatsExtractor = hudiFileStatsExtractor;
+    this.executorService = executorService;
   }
 
   public List<OneFileGroup> getFilesCurrentState(OneTable table) {
@@ -133,11 +138,10 @@ public class HudiDataFileExtractor implements AutoCloseable {
         getAddedAndRemovedPartitionInfo(
             visibleTimeline, instant, fsView, hoodieInstantForDiff, table.getPartitioningFields());
 
-    Stream<OneDataFile> filesAddedWithoutStats = allInfo.getAdded().stream();
+    List<OneDataFile> filesAddedWithoutStats = allInfo.getAdded();
     List<OneDataFile> filesAdded =
-        fileStatsExtractor
-            .addStatsToFiles(tableMetadata, filesAddedWithoutStats, table.getReadSchema())
-            .collect(Collectors.toList());
+        fileStatsExtractor.addStatsToFiles(
+            tableMetadata, filesAddedWithoutStats, table.getReadSchema());
     List<OneDataFile> filesRemoved = allInfo.getRemoved();
 
     return OneDataFilesDiff.builder().filesAdded(filesAdded).filesRemoved(filesRemoved).build();
@@ -351,10 +355,9 @@ public class HudiDataFileExtractor implements AutoCloseable {
       List<String> partitionPaths, OneTable table) {
 
     SyncableFileSystemView fsView = fileSystemViewManager.getFileSystemView(metaClient);
-    Stream<OneDataFile> filesWithoutStats =
-        partitionPaths.stream()
-            .parallel()
-            .flatMap(
+    List<OneDataFile> filesWithoutStats =
+        CustomCollectors.mapAsync(
+                partitionPaths,
                 partitionPath -> {
                   List<PartitionValue> partitionValues =
                       partitionValuesExtractor.extractPartitionValues(
@@ -362,8 +365,12 @@ public class HudiDataFileExtractor implements AutoCloseable {
                   return fsView
                       .getLatestBaseFiles(partitionPath)
                       .map(baseFile -> buildFileWithoutStats(partitionValues, baseFile));
-                });
-    Stream<OneDataFile> files =
+                },
+                executorService)
+            .stream()
+            .flatMap(r -> r)
+            .collect(Collectors.toList());
+    List<OneDataFile> files =
         fileStatsExtractor.addStatsToFiles(tableMetadata, filesWithoutStats, table.getReadSchema());
     return OneFileGroup.fromFiles(files);
   }

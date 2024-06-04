@@ -48,6 +48,7 @@ import java.util.Optional;
 import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -200,7 +201,8 @@ public class TestIcebergSync {
         mockPartitionSpecSync,
         IcebergDataFileUpdatesSync.of(
             mockColumnStatsConverter, IcebergPartitionValueConverter.getInstance()),
-        IcebergTableManager.of(CONFIGURATION));
+        IcebergTableManager.of(CONFIGURATION),
+        Executors.newSingleThreadExecutor());
   }
 
   @Test

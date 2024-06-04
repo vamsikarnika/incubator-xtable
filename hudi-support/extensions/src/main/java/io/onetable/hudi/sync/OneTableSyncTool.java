@@ -75,18 +75,20 @@ public class OneTableSyncTool extends HoodieSyncTool {
             .targetMetadataRetentionInHours(
                 config.getInt(OneTableSyncConfig.ONE_TABLE_TARGET_METADATA_RETENTION_HOURS))
             .build();
-    Map<String, SyncResult> results =
-        new OneTableClient(hadoopConf).sync(perTableConfig, hudiSourceClientProvider);
-    String failingFormats =
-        results.entrySet().stream()
-            .filter(
-                entry ->
-                    entry.getValue().getStatus().getStatusCode()
-                        != SyncResult.SyncStatusCode.SUCCESS)
-            .map(entry -> entry.getKey().toString())
-            .collect(Collectors.joining(","));
-    if (!failingFormats.isEmpty()) {
-      throw new HoodieException("Unable to sync to OneTable for formats: " + failingFormats);
+    try (OneTableClient oneTableClient = new OneTableClient(hadoopConf)) {
+      Map<String, SyncResult> results =
+          oneTableClient.sync(perTableConfig, hudiSourceClientProvider);
+      String failingFormats =
+          results.entrySet().stream()
+              .filter(
+                  entry ->
+                      entry.getValue().getStatus().getStatusCode()
+                          != SyncResult.SyncStatusCode.SUCCESS)
+              .map(entry -> entry.getKey().toString())
+              .collect(Collectors.joining(","));
+      if (!failingFormats.isEmpty()) {
+        throw new HoodieException("Unable to sync to OneTable for formats: " + failingFormats);
+      }
     }
   }
 

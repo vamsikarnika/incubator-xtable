@@ -22,6 +22,8 @@ import static io.onetable.model.storage.TableFormat.DELTA;
 import static io.onetable.model.storage.TableFormat.HUDI;
 import static io.onetable.model.storage.TableFormat.ICEBERG;
 
+import java.util.concurrent.ExecutorService;
+
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
@@ -42,10 +44,13 @@ public class TableFormatClientFactory {
   }
 
   public TargetClient createForFormat(
-      String tableFormat, PerTableConfig perTableConfig, Configuration configuration) {
+      String tableFormat,
+      PerTableConfig perTableConfig,
+      Configuration configuration,
+      ExecutorService executorService) {
     switch (tableFormat) {
       case ICEBERG:
-        return new IcebergClient(perTableConfig, configuration);
+        return new IcebergClient(perTableConfig, configuration, executorService);
       case DELTA:
         return new DeltaClient(perTableConfig, configuration);
       case HUDI:
