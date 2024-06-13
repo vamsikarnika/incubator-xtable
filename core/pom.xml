@@ -105,7 +105,6 @@
         <dependency>
             <groupId>org.apache.iceberg</groupId>
             <artifactId>iceberg-spark-runtime-${spark.version.prefix}_${scala.version.prefix}</artifactId>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.spark</groupId>

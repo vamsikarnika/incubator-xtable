@@ -214,7 +214,6 @@
                 <groupId>org.apache.iceberg</groupId>
                 <artifactId>iceberg-spark-runtime-${spark.version.prefix}_${scala.version.prefix}</artifactId>
                 <version>${iceberg.version}</version>
-                <scope>test</scope>
             </dependency>
 
             <!-- Delta -->

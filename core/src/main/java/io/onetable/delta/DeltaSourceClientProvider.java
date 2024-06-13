@@ -24,12 +24,13 @@ import io.delta.tables.DeltaTable;
 
 import io.onetable.client.PerTableConfig;
 import io.onetable.client.SourceClientProvider;
+import io.onetable.services.SparkUtils;
 
 /** A concrete implementation of {@link SourceClientProvider} for Delta Lake table format. */
 public class DeltaSourceClientProvider extends SourceClientProvider<Long> {
   @Override
   public DeltaSourceClient getSourceClientInstance(PerTableConfig perTableConfig) {
-    SparkSession sparkSession = DeltaClientUtils.buildSparkSession(hadoopConf);
+    SparkSession sparkSession = SparkUtils.buildSparkSession(hadoopConf);
     DeltaTable deltaTable = DeltaTable.forPath(sparkSession, perTableConfig.getTableBasePath());
     DeltaSourceClient deltaSourceClient =
         DeltaSourceClient.builder()

@@ -19,12 +19,15 @@
 package io.onetable.loadtest;
 
 import java.nio.file.Path;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -33,6 +36,9 @@ import org.junit.jupiter.api.io.TempDir;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
 import org.apache.hudi.config.HoodieArchivalConfig;
+
+import org.apache.iceberg.hadoop.HadoopTables;
+import org.apache.iceberg.spark.actions.SparkActions;
 
 import io.onetable.TestJavaHudiTable;
 import io.onetable.client.OneTableClient;
@@ -127,6 +133,27 @@ public class LoadTest {
       oneTableClient.sync(perTableConfig, hudiSourceClientProvider);
       long end = System.currentTimeMillis();
       System.out.println("Incremental sync took " + (end - start) + "ms");
+      runIcebergSparkCleaner(table.getBasePath());
     }
+  }
+
+  private void runIcebergSparkCleaner(String tableBasePath) {
+    SparkSession sparkSession =
+        SparkSession.builder()
+            .appName("iceberg-cleaner")
+            .config("spark.master", "local[2]")
+            .config("spark.driver.memory", "1g")
+            .config("spark.executor.memory", "512m")
+            .config("spark.executor.instances", "8")
+            .getOrCreate();
+    SparkActions sparkActions = SparkActions.get(sparkSession);
+    HadoopTables hadoopTables = new HadoopTables(sparkSession.sparkContext().hadoopConfiguration());
+    long start = System.currentTimeMillis();
+    sparkActions
+        .expireSnapshots(hadoopTables.load(tableBasePath))
+        .expireOlderThan(Instant.now().minus(1, ChronoUnit.MINUTES).toEpochMilli())
+        .execute();
+    long end = System.currentTimeMillis();
+    System.out.println("ExpireSnapshotsSparkAction  took " + (end - start) + "ms");
   }
 }

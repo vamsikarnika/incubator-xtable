@@ -60,6 +60,7 @@ import io.onetable.model.schema.OneSchema;
 import io.onetable.model.storage.OneDataFilesDiff;
 import io.onetable.model.storage.OneFileGroup;
 import io.onetable.model.storage.TableFormat;
+import io.onetable.services.SparkUtils;
 import io.onetable.spi.sync.TargetClient;
 
 public class DeltaClient implements TargetClient {
@@ -77,7 +78,7 @@ public class DeltaClient implements TargetClient {
   private TransactionState transactionState;
 
   public DeltaClient(PerTableConfig perTableConfig, Configuration configuration) {
-    this(perTableConfig, DeltaClientUtils.buildSparkSession(configuration));
+    this(perTableConfig, SparkUtils.buildSparkSession(configuration));
   }
 
   public DeltaClient(PerTableConfig perTableConfig, SparkSession sparkSession) {

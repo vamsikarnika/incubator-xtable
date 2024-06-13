@@ -16,7 +16,7 @@
  * limitations under the License.
  */
  
-package io.onetable.delta;
+package io.onetable.services;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
@@ -26,11 +26,11 @@ import org.apache.spark.SparkConf;
 import org.apache.spark.serializer.KryoSerializer;
 import org.apache.spark.sql.SparkSession;
 
-/** A utility class for Delta client. */
+/** A utility class for fetching the spark session. */
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
-public class DeltaClientUtils {
+public class SparkUtils {
 
-  static SparkSession buildSparkSession(Configuration conf) {
+  public static SparkSession buildSparkSession(Configuration conf) {
     SparkConf sparkConf =
         new SparkConf()
             .setAppName("onetableclient")

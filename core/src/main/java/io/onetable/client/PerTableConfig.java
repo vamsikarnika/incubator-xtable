@@ -99,6 +99,12 @@ public class PerTableConfig {
    */
   int targetMetadataRetentionInHours;
 
+  /**
+   * Few table operations (expiring snapshots in iceberg for example) can be optimised by using
+   * spark.
+   */
+  Boolean canUseSparkExecution;
+
   @Builder
   PerTableConfig(
       @NonNull String tableBasePath,
@@ -109,7 +115,8 @@ public class PerTableConfig {
       @NonNull List<String> targetTableFormats,
       IcebergCatalogConfig icebergCatalogConfig,
       SyncMode syncMode,
-      Integer targetMetadataRetentionInHours) {
+      Integer targetMetadataRetentionInHours,
+      Boolean canUseSparkExecution) {
     // sanitize source path
     this.tableBasePath = sanitizeBasePath(tableBasePath);
     this.tableDataPath = tableDataPath == null ? tableBasePath : sanitizeBasePath(tableDataPath);
@@ -124,6 +131,7 @@ public class PerTableConfig {
     this.syncMode = syncMode == null ? SyncMode.INCREMENTAL : syncMode;
     this.targetMetadataRetentionInHours =
         targetMetadataRetentionInHours == null ? 24 * 7 : targetMetadataRetentionInHours;
+    this.canUseSparkExecution = canUseSparkExecution != null && canUseSparkExecution;
   }
 
   private String sanitizeBasePath(String tableBasePath) {

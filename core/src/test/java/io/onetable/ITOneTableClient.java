@@ -41,6 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -80,6 +81,7 @@ import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.spark.sql.delta.DeltaLog;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.MoreExecutors;
 
 import io.onetable.client.OneTableClient;
 import io.onetable.client.PerTableConfig;
@@ -94,6 +96,7 @@ import io.onetable.model.sync.SyncMode;
 
 public class ITOneTableClient {
   @TempDir public static Path tempDir;
+  private static final ExecutorService EXECUTOR_SERVICE = MoreExecutors.newDirectExecutorService();
   private static final DateTimeFormatter DATE_FORMAT =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneId.of("UTC"));
 
@@ -112,7 +115,7 @@ public class ITOneTableClient {
         .hadoopConfiguration()
         .set("parquet.avro.write-old-list-structure", "false");
     jsc = JavaSparkContext.fromSparkContext(sparkSession.sparkContext());
-    oneTableClient = new OneTableClient(jsc.hadoopConfiguration());
+    oneTableClient = new OneTableClient(jsc.hadoopConfiguration(), EXECUTOR_SERVICE);
   }
 
   @AfterAll
@@ -126,6 +129,7 @@ public class ITOneTableClient {
     if (sparkSession != null) {
       sparkSession.close();
     }
+    EXECUTOR_SERVICE.shutdownNow();
   }
 
   private static Stream<Arguments> testCasesWithPartitioningAndSyncModes() {

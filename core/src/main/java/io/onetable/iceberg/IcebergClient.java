@@ -42,6 +42,7 @@ import org.apache.iceberg.UpdateProperties;
 import org.apache.iceberg.catalog.Namespace;
 import org.apache.iceberg.catalog.TableIdentifier;
 import org.apache.iceberg.exceptions.NotFoundException;
+import org.apache.iceberg.spark.actions.SparkActions;
 
 import io.onetable.client.PerTableConfig;
 import io.onetable.model.OneTable;
@@ -51,6 +52,7 @@ import io.onetable.model.schema.OneSchema;
 import io.onetable.model.storage.OneDataFilesDiff;
 import io.onetable.model.storage.OneFileGroup;
 import io.onetable.model.storage.TableFormat;
+import io.onetable.services.SparkUtils;
 import io.onetable.spi.sync.TargetClient;
 
 @Log4j2
@@ -71,6 +73,7 @@ public class IcebergClient implements TargetClient {
   private Transaction transaction;
   private Table table;
   private OneTable internalTableState;
+  private SparkActions sparkActions = null;
 
   public IcebergClient(PerTableConfig perTableConfig, Configuration configuration) {
     this(
@@ -114,6 +117,9 @@ public class IcebergClient implements TargetClient {
     if (tableManager.tableExists(catalogConfig, tableIdentifier, basePath)) {
       // Load the table state if it already exists
       this.table = tableManager.getTable(catalogConfig, tableIdentifier, basePath);
+    }
+    if (perTableConfig.getCanUseSparkExecution()) {
+      this.sparkActions = SparkActions.get(SparkUtils.buildSparkSession(configuration));
     }
     // Clear any corrupted state before using the target client
     rollbackCorruptCommits();
@@ -194,13 +200,22 @@ public class IcebergClient implements TargetClient {
 
   @Override
   public void completeSync() {
-    transaction
-        .expireSnapshots()
-        .expireOlderThan(
-            Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
-        .deleteWith(this::safeDelete) // ensures that only metadata files are deleted
-        .cleanExpiredFiles(true)
-        .commit();
+    if (sparkActions == null) {
+      transaction
+          .expireSnapshots()
+          .expireOlderThan(
+              Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
+          .deleteWith(this::safeDelete) // ensures that only metadata files are deleted
+          .cleanExpiredFiles(true)
+          .commit();
+    } else {
+      sparkActions
+          .expireSnapshots(table)
+          .expireOlderThan(
+              Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
+          .deleteWith(this::safeDelete)
+          .execute();
+    }
     transaction.commitTransaction();
     transaction = null;
     internalTableState = null;

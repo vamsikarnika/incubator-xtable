@@ -19,6 +19,12 @@
         <dependency>
             <groupId>io.onetable</groupId>
             <artifactId>onetable-core</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.apache.iceberg</groupId>
+                    <artifactId>iceberg-spark-runtime-${spark.version.prefix}_${scala.version.prefix}</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Logging API -->
