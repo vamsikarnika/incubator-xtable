@@ -54,6 +54,7 @@ import org.apache.parquet.avro.AvroParquetWriter;
 import org.apache.parquet.hadoop.ParquetWriter;
 import org.apache.parquet.hadoop.util.HadoopOutputFile;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -79,7 +80,8 @@ import io.onetable.model.stat.ColumnStat;
 import io.onetable.model.storage.FileFormat;
 import io.onetable.model.storage.OneDataFile;
 
-public class TestHudiFileStatsExtractor {
+public class TestMultiThreadedFileStatsExtractor {
+  private static final ExecutorService EXECUTOR_SERVICE = Executors.newFixedThreadPool(2);
   private static final Schema AVRO_SCHEMA =
       new Schema.Parser()
           .parse(
@@ -124,7 +126,10 @@ public class TestHudiFileStatsExtractor {
                   decimalField))
           .build();
 
-  private final ExecutorService executorService = Executors.newSingleThreadExecutor();
+  @AfterAll
+  static void shutdown() {
+    EXECUTOR_SERVICE.shutdown();
+  }
 
   @Test
   void columnStatsWithMetadataTable(@TempDir Path tempDir) throws Exception {
@@ -161,8 +166,8 @@ public class TestHudiFileStatsExtractor {
             .build();
     HoodieTableMetaClient metaClient =
         HoodieTableMetaClient.builder().setBasePath(basePath).setConf(configuration).build();
-    HudiFileStatsExtractor fileStatsExtractor =
-        new HudiFileStatsExtractor(metaClient, executorService);
+    MultiThreadedFileStatsExtractor fileStatsExtractor =
+        new MultiThreadedFileStatsExtractor(metaClient, EXECUTOR_SERVICE);
     List<OneDataFile> output =
         fileStatsExtractor.addStatsToFiles(
             tableMetadata, Collections.singletonList(inputFile), schema);
@@ -173,8 +178,8 @@ public class TestHudiFileStatsExtractor {
   void columnStatsWithoutMetadataTable(@TempDir Path tempDir) throws IOException {
     HoodieTableMetaClient mockMetaClient = mock(HoodieTableMetaClient.class);
     when(mockMetaClient.getHadoopConf()).thenReturn(configuration);
-    HudiFileStatsExtractor fileStatsExtractor =
-        new HudiFileStatsExtractor(mockMetaClient, executorService);
+    MultiThreadedFileStatsExtractor fileStatsExtractor =
+        new MultiThreadedFileStatsExtractor(mockMetaClient, EXECUTOR_SERVICE);
     List<OneDataFile> output =
         fileStatsExtractor.addStatsToFiles(null, generateInputFiles(tempDir, 1), schema);
     validateOutput(output);
@@ -187,8 +192,8 @@ public class TestHudiFileStatsExtractor {
     int numFiles = 10000;
     HoodieTableMetaClient mockMetaClient = mock(HoodieTableMetaClient.class);
     when(mockMetaClient.getHadoopConf()).thenReturn(configuration);
-    HudiFileStatsExtractor fileStatsExtractor =
-        new HudiFileStatsExtractor(
+    MultiThreadedFileStatsExtractor fileStatsExtractor =
+        new MultiThreadedFileStatsExtractor(
             mockMetaClient, Executors.newFixedThreadPool(OneTableConstants.DEFAULT_PARALLELISM));
     List<OneDataFile> inputDataFiles = generateInputFiles(tempDir, numFiles);
     long startTime = System.nanoTime();

@@ -62,7 +62,8 @@ public class HudiClient implements SourceClient<HoodieInstant> {
   public HudiClient(
       HoodieTableMetaClient metaClient,
       HudiSourcePartitionSpecExtractor sourcePartitionSpecExtractor,
-      ExecutorService executorService) {
+      ExecutorService executorService,
+      HudiFileStatsExtractor fileStatsExtractor) {
     this.metaClient = metaClient;
     this.tableExtractor =
         new HudiTableExtractor(new HudiSchemaExtractor(), sourcePartitionSpecExtractor);
@@ -71,7 +72,7 @@ public class HudiClient implements SourceClient<HoodieInstant> {
             metaClient,
             new HudiPartitionValuesExtractor(
                 sourcePartitionSpecExtractor.getPathToPartitionFieldFormat()),
-            new HudiFileStatsExtractor(metaClient, executorService),
+            fileStatsExtractor,
             executorService);
   }
 

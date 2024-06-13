@@ -37,5 +37,5 @@ public class OneTableConstants {
    * The default parallelism to be used for dedicated executor service for running few operations
    * concurrently
    */
-  public static final Integer DEFAULT_PARALLELISM = 10;
+  public static final int DEFAULT_PARALLELISM = 5;
 }
