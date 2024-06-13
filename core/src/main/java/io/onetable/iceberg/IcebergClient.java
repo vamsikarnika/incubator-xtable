@@ -26,7 +26,6 @@ import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
 
 import lombok.extern.log4j.Log4j2;
 
@@ -69,13 +68,11 @@ public class IcebergClient implements TargetClient {
   private final Configuration configuration;
   private final int snapshotRetentionInHours;
 
-  private final ExecutorService executorService;
   private Transaction transaction;
   private Table table;
   private OneTable internalTableState;
 
-  public IcebergClient(
-      PerTableConfig perTableConfig, Configuration configuration, ExecutorService executorService) {
+  public IcebergClient(PerTableConfig perTableConfig, Configuration configuration) {
     this(
         perTableConfig,
         configuration,
@@ -86,8 +83,7 @@ public class IcebergClient implements TargetClient {
         IcebergDataFileUpdatesSync.of(
             IcebergColumnStatsConverter.getInstance(),
             IcebergPartitionValueConverter.getInstance()),
-        IcebergTableManager.of(configuration),
-        executorService);
+        IcebergTableManager.of(configuration));
   }
 
   IcebergClient(
@@ -98,8 +94,7 @@ public class IcebergClient implements TargetClient {
       IcebergPartitionSpecExtractor partitionSpecExtractor,
       IcebergPartitionSpecSync partitionSpecSync,
       IcebergDataFileUpdatesSync dataFileUpdatesExtractor,
-      IcebergTableManager tableManager,
-      ExecutorService executorService) {
+      IcebergTableManager tableManager) {
     this.schemaExtractor = schemaExtractor;
     this.schemaSync = schemaSync;
     this.partitionSpecExtractor = partitionSpecExtractor;
@@ -116,7 +111,6 @@ public class IcebergClient implements TargetClient {
             : TableIdentifier.of(Namespace.of(namespace), tableName);
     this.tableManager = tableManager;
     this.catalogConfig = perTableConfig.getIcebergCatalogConfig();
-    this.executorService = executorService;
     if (tableManager.tableExists(catalogConfig, tableIdentifier, basePath)) {
       // Load the table state if it already exists
       this.table = tableManager.getTable(catalogConfig, tableIdentifier, basePath);
@@ -206,8 +200,6 @@ public class IcebergClient implements TargetClient {
             Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
         .deleteWith(this::safeDelete) // ensures that only metadata files are deleted
         .cleanExpiredFiles(true)
-        .planWith(executorService)
-        .executeDeleteWith(executorService)
         .commit();
     transaction.commitTransaction();
     transaction = null;

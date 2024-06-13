@@ -50,7 +50,7 @@ public class TableFormatClientFactory {
       ExecutorService executorService) {
     switch (tableFormat) {
       case ICEBERG:
-        return new IcebergClient(perTableConfig, configuration, executorService);
+        return new IcebergClient(perTableConfig, configuration);
       case DELTA:
         return new DeltaClient(perTableConfig, configuration);
       case HUDI:
