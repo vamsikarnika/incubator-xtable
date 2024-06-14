@@ -41,7 +41,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -57,8 +57,10 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -81,7 +83,6 @@ import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.spark.sql.delta.DeltaLog;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.MoreExecutors;
 
 import io.onetable.client.OneTableClient;
 import io.onetable.client.PerTableConfig;
@@ -96,14 +97,13 @@ import io.onetable.model.sync.SyncMode;
 
 public class ITOneTableClient {
   @TempDir public static Path tempDir;
-  private static final ExecutorService EXECUTOR_SERVICE = MoreExecutors.newDirectExecutorService();
   private static final DateTimeFormatter DATE_FORMAT =
       DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").withZone(ZoneId.of("UTC"));
 
   private static JavaSparkContext jsc;
   private static SparkSession sparkSession;
 
-  private static OneTableClient oneTableClient;
+  private OneTableClient oneTableClient;
 
   @BeforeAll
   public static void setupOnce() {
@@ -115,21 +115,27 @@ public class ITOneTableClient {
         .hadoopConfiguration()
         .set("parquet.avro.write-old-list-structure", "false");
     jsc = JavaSparkContext.fromSparkContext(sparkSession.sparkContext());
-    oneTableClient = new OneTableClient(jsc.hadoopConfiguration(), EXECUTOR_SERVICE);
+  }
+
+  @BeforeEach
+  void setup() {
+    oneTableClient =
+        new OneTableClient(jsc.hadoopConfiguration(), Executors.newSingleThreadExecutor());
+  }
+
+  @AfterEach
+  void closeClient() {
+    oneTableClient.close();
   }
 
   @AfterAll
   public static void teardown() {
-    if (oneTableClient != null) {
-      oneTableClient.close();
-    }
     if (jsc != null) {
       jsc.close();
     }
     if (sparkSession != null) {
       sparkSession.close();
     }
-    EXECUTOR_SERVICE.shutdownNow();
   }
 
   private static Stream<Arguments> testCasesWithPartitioningAndSyncModes() {
