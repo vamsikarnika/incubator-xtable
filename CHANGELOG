@@ -78,3 +78,7 @@ d564426 Upgrade to version release-v0.6.1 (#29)
 ---[2024-06-13 13:54:31] [release-v0.7.1] ---
 ee02a65 [ENG-10140] Avoid using executorService for iceberg expire snapshots (#44)
 c7023e1 Upgrade to version release-v0.7.0 (#41)
+
+---[2024-06-13 17:20:06] [release-v0.8.0] ---
+fc8fc13 [ENG-10140] Use SparkActions for iceberg cleaner (#43)
+289ea7d [ENG-9405] Make file stats extractor configurable (#47)
