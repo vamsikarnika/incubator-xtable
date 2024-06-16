@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
@@ -169,16 +170,18 @@ public class HudiDataFileExtractor implements AutoCloseable {
               .getPartitionToWriteStats()
               .forEach(
                   (partitionPath, writeStats) -> {
-                    Set<String> affectedFileIds =
+                    Map<String, Long> affectedFileIdsRowCountMap =
                         writeStats.stream()
-                            .map(HoodieWriteStat::getFileId)
-                            .collect(Collectors.toSet());
+                            .collect(
+                                Collectors.groupingBy(
+                                    HoodieWriteStat::getFileId,
+                                    Collectors.summingLong(HoodieWriteStat::getNumWrites)));
                     AddedAndRemovedFiles addedAndRemovedFiles =
                         getUpdatesToPartition(
                             fsView,
                             instantToConsider,
                             partitionPath,
-                            affectedFileIds,
+                            affectedFileIdsRowCountMap,
                             partitioningFields);
                     addedFiles.addAll(addedAndRemovedFiles.getAdded());
                     removedFiles.addAll(addedAndRemovedFiles.getRemoved());
@@ -290,17 +293,19 @@ public class HudiDataFileExtractor implements AutoCloseable {
       TableFileSystemView fsView,
       HoodieInstant instantToConsider,
       String partitionPath,
-      Set<String> affectedFileIds,
+      Map<String, Long> affectedFileIdsRowCountMap,
       List<OnePartitionField> partitioningFields) {
-    List<OneDataFile> filesToAdd = new ArrayList<>(affectedFileIds.size());
-    List<OneDataFile> filesToRemove = new ArrayList<>(affectedFileIds.size());
+    List<OneDataFile> filesToAdd = new ArrayList<>(affectedFileIdsRowCountMap.size());
+    List<OneDataFile> filesToRemove = new ArrayList<>(affectedFileIdsRowCountMap.size());
     List<PartitionValue> partitionValues =
         partitionValuesExtractor.extractPartitionValues(partitioningFields, partitionPath);
     Stream<HoodieFileGroup> fileGroups =
         Stream.concat(
             fsView.getAllFileGroups(partitionPath), fsView.getAllReplacedFileGroups(partitionPath));
     fileGroups
-        .filter(fileGroup -> affectedFileIds.contains(fileGroup.getFileGroupId().getFileId()))
+        .filter(
+            fileGroup ->
+                affectedFileIdsRowCountMap.containsKey(fileGroup.getFileGroupId().getFileId()))
         .forEach(
             fileGroup -> {
               List<HoodieBaseFile> baseFiles =
@@ -309,7 +314,10 @@ public class HudiDataFileExtractor implements AutoCloseable {
               for (HoodieBaseFile baseFile : baseFiles) {
                 if (baseFile.getCommitTime().equals(instantToConsider.getTimestamp())) {
                   newBaseFileAdded = true;
-                  filesToAdd.add(buildFileWithoutStats(partitionValues, baseFile));
+                  if (affectedFileIdsRowCountMap.get(fileGroup.getFileGroupId().getFileId()) > 0) {
+                    // Include only non-zero row group base files.
+                    filesToAdd.add(buildFileWithoutStats(partitionValues, baseFile));
+                  }
                 } else if (newBaseFileAdded) {
                   // if a new base file was added, then the previous base file for the group needs
                   // to be removed
@@ -372,7 +380,11 @@ public class HudiDataFileExtractor implements AutoCloseable {
             .collect(Collectors.toList());
     List<OneDataFile> files =
         fileStatsExtractor.addStatsToFiles(tableMetadata, filesWithoutStats, table.getReadSchema());
-    return OneFileGroup.fromFiles(files);
+    return OneFileGroup.fromFiles(filterFilesWithNonZeroRowCount(files).stream());
+  }
+
+  private List<OneDataFile> filterFilesWithNonZeroRowCount(List<OneDataFile> files) {
+    return files.stream().filter(file -> file.getRecordCount() > 0).collect(Collectors.toList());
   }
 
   @Override

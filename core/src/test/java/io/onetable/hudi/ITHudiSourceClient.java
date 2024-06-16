@@ -26,6 +26,7 @@ import static io.onetable.hudi.HudiTestUtil.PartitionConfig;
 import static java.util.stream.Collectors.groupingBy;
 import static org.junit.jupiter.api.Assertions.*;
 
+import java.io.IOException;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
@@ -43,6 +44,7 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import lombok.Builder;
+import lombok.SneakyThrows;
 import lombok.Value;
 
 import org.apache.hadoop.conf.Configuration;
@@ -60,6 +62,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.apache.hudi.client.HoodieReadClient;
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.model.HoodieAvroPayload;
+import org.apache.hudi.common.model.HoodieCommitMetadata;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.model.HoodieTableType;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
@@ -294,6 +297,7 @@ public class ITHudiSourceClient {
     }
   }
 
+  @SneakyThrows
   @ParameterizedTest
   @MethodSource("testsForAllTableTypes")
   public void testsForDeleteAllRecordsInPartition(HoodieTableType tableType) {
@@ -302,6 +306,12 @@ public class ITHudiSourceClient {
         TestSparkHudiTable.forStandardSchema(tableName, tempDir, jsc, "level:SIMPLE", tableType)) {
       List<List<String>> allBaseFilePaths = new ArrayList<>();
       List<TableChange> allTableChanges = new ArrayList<>();
+      HoodieTableMetaClient metaClient =
+          HoodieTableMetaClient.builder()
+              .setBasePath(table.getBasePath())
+              .setLoadActiveTimelineOnLoad(true)
+              .setConf(jsc.hadoopConfiguration())
+              .build();
 
       String commitInstant1 = table.startCommit();
       List<HoodieRecord<HoodieAvroPayload>> insertsForCommit1 = table.generateRecords(100);
@@ -315,15 +325,16 @@ public class ITHudiSourceClient {
           insertsForCommit1.stream().collect(groupingBy(HoodieRecord::getPartitionPath));
       String selectedPartition = recordsByPartition.keySet().stream().sorted().findAny().get();
       table.deleteRecords(recordsByPartition.get(selectedPartition), true);
-      allBaseFilePaths.add(table.getAllLatestBaseFilePaths());
-      if (tableType == HoodieTableType.MERGE_ON_READ) {
-        table.compact();
+      if (tableType != HoodieTableType.COPY_ON_WRITE) {
         allBaseFilePaths.add(table.getAllLatestBaseFilePaths());
+        table.compact();
       }
+      String zeroFileSlice = getFileSliceForPartition(metaClient, selectedPartition);
+      allBaseFilePaths.add(removeFileSlice(table.getAllLatestBaseFilePaths(), zeroFileSlice));
 
       // Insert few records for deleted partition again to make it interesting.
       table.insertRecords(20, selectedPartition, true);
-      allBaseFilePaths.add(table.getAllLatestBaseFilePaths());
+      allBaseFilePaths.add(removeFileSlice(table.getAllLatestBaseFilePaths(), zeroFileSlice));
 
       HudiClient hudiClient =
           getHudiSourceClient(CONFIGURATION, table.getBasePath(), "level:VALUE");
@@ -568,6 +579,20 @@ public class ITHudiSourceClient {
         partitionSpecExtractor,
         EXECUTOR_SERVICE,
         new MultiThreadedFileStatsExtractor(hoodieTableMetaClient, EXECUTOR_SERVICE));
+  }
+
+  private List<String> removeFileSlice(List<String> files, String fileSlice) {
+    return files.stream().filter(file -> !file.contains(fileSlice)).collect(Collectors.toList());
+  }
+
+  private String getFileSliceForPartition(
+      HoodieTableMetaClient metaClient, String selectedPartition) throws IOException {
+    HoodieInstant lastInstant = metaClient.reloadActiveTimeline().lastInstant().get();
+    HoodieCommitMetadata commitMetadata =
+        HoodieCommitMetadata.fromBytes(
+            metaClient.getActiveTimeline().getInstantDetails(lastInstant).get(),
+            HoodieCommitMetadata.class);
+    return commitMetadata.getPartitionToWriteStats().get(selectedPartition).get(0).getPath();
   }
 
   private boolean checkIfNewFileGroupIsAdded(String activePath, TableChange tableChange) {

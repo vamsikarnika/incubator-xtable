@@ -20,11 +20,13 @@ package io.onetable;
 
 import static io.onetable.GenericTable.getTableName;
 import static io.onetable.hudi.HudiTestUtil.PartitionConfig;
+import static io.onetable.hudi.HudiTestUtil.getHoodieWriteConfig;
 import static io.onetable.model.storage.TableFormat.DELTA;
 import static io.onetable.model.storage.TableFormat.HUDI;
 import static io.onetable.model.storage.TableFormat.ICEBERG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 
 import java.net.URI;
 import java.nio.file.Files;
@@ -49,6 +51,7 @@ import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import lombok.Builder;
+import lombok.SneakyThrows;
 import lombok.Value;
 
 import org.apache.spark.SparkConf;
@@ -72,9 +75,14 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.apache.hudi.client.HoodieReadClient;
 import org.apache.hudi.common.config.HoodieMetadataConfig;
 import org.apache.hudi.common.model.HoodieAvroPayload;
+import org.apache.hudi.common.model.HoodieCommitMetadata;
 import org.apache.hudi.common.model.HoodieRecord;
 import org.apache.hudi.common.model.HoodieTableType;
+import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.table.timeline.HoodieInstant;
+import org.apache.hudi.common.table.view.HoodieTableFileSystemView;
+import org.apache.hudi.common.util.ParquetUtils;
+import org.apache.hudi.metadata.HoodieMetadataFileSystemView;
 
 import org.apache.iceberg.Snapshot;
 import org.apache.iceberg.Table;
@@ -92,6 +100,8 @@ import io.onetable.hudi.HudiSourceClientProvider;
 import io.onetable.hudi.HudiSourceConfig;
 import io.onetable.hudi.HudiTestUtil;
 import io.onetable.iceberg.IcebergSourceClientProvider;
+import io.onetable.model.OneSnapshot;
+import io.onetable.model.TableChange;
 import io.onetable.model.storage.TableFormat;
 import io.onetable.model.sync.SyncMode;
 
@@ -423,6 +433,172 @@ public class ITOneTableClient {
                       targetTableFormat ->
                           getTimeTravelOption(targetTableFormat, instantAfterSecondSync))),
           100);
+    }
+  }
+
+  @SneakyThrows
+  @ParameterizedTest
+  @EnumSource(value = HoodieTableType.class)
+  public void testForZeroRowGroup(HoodieTableType hoodieTableType) {
+    String tableName = getTableName();
+    PartitionConfig partitionedConfig = PartitionConfig.of("level:SIMPLE", "level:VALUE");
+    try (TestJavaHudiTable table =
+        TestJavaHudiTable.forStandardSchema(
+            tableName, tempDir, partitionedConfig.getHudiConfig(), hoodieTableType)) {
+      // Insert records into level1 partition.
+      List<HoodieRecord<HoodieAvroPayload>> insertsForLevel1 =
+          table.insertRecords(20, "level1", true);
+      SourceClientProvider<HoodieInstant> hudiSourceClientProvider =
+          (SourceClientProvider<HoodieInstant>) getSourceClientProvider(HUDI);
+      PerTableConfig perTableConfig =
+          PerTableConfig.builder()
+              .tableName(tableName)
+              .targetTableFormats(Arrays.asList(ICEBERG, DELTA))
+              .tableBasePath(table.getBasePath())
+              .tableDataPath(table.getDataPath())
+              .syncMode(SyncMode.INCREMENTAL)
+              .build();
+      // Do a snapshot sync.
+      oneTableClient.sync(perTableConfig, hudiSourceClientProvider);
+      // Insert records in level2 partition.
+      List<HoodieRecord<HoodieAvroPayload>> insertsForLevel2 =
+          table.insertRecords(20, "level2", true);
+      table.upsertRecords(insertsForLevel2, true);
+      table.upsertRecords(insertsForLevel1, true);
+      // Delete all records in level2 partition.
+      table.deleteRecords(insertsForLevel2, true);
+      if (hoodieTableType == HoodieTableType.MERGE_ON_READ) {
+        table.compact();
+      }
+      // Incremental sync.
+      oneTableClient.sync(perTableConfig, hudiSourceClientProvider);
+      // Validate source client snapshots across all formats.
+      for (String tableFormat : TableFormat.values()) {
+        OneSnapshot oneSnapshot =
+            getSourceClientProvider(tableFormat)
+                .getSourceClientInstance(perTableConfig)
+                .getCurrentSnapshot();
+        long filesWithZeroCount =
+            oneSnapshot.getPartitionedDataFiles().stream()
+                .flatMap(f -> f.getFiles().stream())
+                .filter(f -> f.getRecordCount() == 0)
+                .count();
+        assertEquals(0, filesWithZeroCount);
+      }
+      // Assert files with zero count are present in hudi table view.
+      HoodieTableMetaClient metaClient =
+          HoodieTableMetaClient.builder()
+              .setBasePath(table.getBasePath())
+              .setLoadActiveTimelineOnLoad(true)
+              .setConf(jsc.hadoopConfiguration())
+              .build();
+      metaClient.reloadActiveTimeline();
+      HoodieTableFileSystemView fsView =
+          new HoodieMetadataFileSystemView(
+              table.getWriteClient().getEngineContext(),
+              metaClient,
+              metaClient.reloadActiveTimeline(),
+              getHoodieWriteConfig(metaClient).getMetadataConfig());
+      ParquetUtils parquetUtils = new ParquetUtils();
+      long filesWithZeroCount =
+          table.getAllLatestBaseFiles(fsView).stream()
+              .filter(
+                  file ->
+                      parquetUtils.getRowCount(metaClient.getHadoopConf(), file.getHadoopPath())
+                          == 0)
+              .count();
+      assertEquals(1, filesWithZeroCount);
+      // Assert number of instants.
+      int expectedNumInstants = hoodieTableType.equals(HoodieTableType.COPY_ON_WRITE) ? 5 : 6;
+      List<HoodieInstant> instants =
+          metaClient.getActiveTimeline().getWriteTimeline().filterCompletedInstants().getInstants();
+      assertEquals(expectedNumInstants, instants.size());
+      // Get changes in Incremental format for the commit which deleted data.
+      TableChange tableChange =
+          hudiSourceClientProvider
+              .getSourceClientInstance(perTableConfig)
+              .getTableChangeForCommit(instants.get(4));
+      // Assert zero row parquet file is not getting added.
+      assertEquals(0, tableChange.getFilesDiff().getFilesAdded().size());
+      // Assert the parquet file where entire partition got deleted is being removed.
+      assertEquals(1, tableChange.getFilesDiff().getFilesRemoved().size());
+      HoodieInstant hoodieInstantContainingRemovedBaseFile =
+          hoodieTableType.equals(HoodieTableType.COPY_ON_WRITE) ? instants.get(2) : instants.get(1);
+      HoodieCommitMetadata commitMetadataBeforeZeroRowGroup =
+          HoodieCommitMetadata.fromBytes(
+              metaClient
+                  .getActiveTimeline()
+                  .getInstantDetails(hoodieInstantContainingRemovedBaseFile)
+                  .get(),
+              HoodieCommitMetadata.class);
+      String expectedPathForDeletedFile =
+          String.format(
+              "%s/%s",
+              table.getBasePath(),
+              commitMetadataBeforeZeroRowGroup
+                  .getPartitionToWriteStats()
+                  .get("level2")
+                  .get(0)
+                  .getPath());
+      String actualPathForDeletedFile =
+          tableChange.getFilesDiff().getFilesRemoved().stream().findFirst().get().getPhysicalPath();
+      assertEquals(
+          Paths.get(URI.create(expectedPathForDeletedFile)),
+          Paths.get(URI.create(actualPathForDeletedFile)));
+      // Insert records into empty partition.
+      table.insertRecords(20, "level2", true);
+      // Incremental sync.
+      oneTableClient.sync(perTableConfig, hudiSourceClientProvider);
+      // Reload everything.
+      metaClient.reloadActiveTimeline();
+      instants =
+          metaClient.getActiveTimeline().getWriteTimeline().filterCompletedInstants().getInstants();
+      TableChange tableChangeNewRecordsInEmptyPartition =
+          hudiSourceClientProvider
+              .getSourceClientInstance(perTableConfig)
+              .getTableChangeForCommit(instants.get(instants.size() - 1));
+      // Assert zero row group parquet file is not in removed list
+      assertEquals(
+          0, tableChangeNewRecordsInEmptyPartition.getFilesDiff().getFilesRemoved().size());
+      // Assert new base file in empty partition is added.
+      assertEquals(1, tableChangeNewRecordsInEmptyPartition.getFilesDiff().getFilesAdded().size());
+      HoodieCommitMetadata commitMetadataAfterZeroRowGroup =
+          HoodieCommitMetadata.fromBytes(
+              metaClient
+                  .getActiveTimeline()
+                  .getInstantDetails(instants.get(instants.size() - 1))
+                  .get(),
+              HoodieCommitMetadata.class);
+      String expectedPathForAddedFile =
+          String.format(
+              "%s/%s",
+              table.getBasePath(),
+              commitMetadataAfterZeroRowGroup
+                  .getPartitionToWriteStats()
+                  .get("level2")
+                  .get(0)
+                  .getPath());
+      String actualPathForAddedFile =
+          tableChangeNewRecordsInEmptyPartition.getFilesDiff().getFilesAdded().stream()
+              .findFirst()
+              .get()
+              .getPhysicalPath();
+      assertEquals(
+          Paths.get(URI.create(expectedPathForAddedFile)),
+          Paths.get(URI.create(actualPathForAddedFile)));
+      // Assert fileId changes when data is added to an empty partition containing zero row group
+      // file.
+      assertNotEquals(
+          commitMetadataBeforeZeroRowGroup
+              .getPartitionToWriteStats()
+              .get("level2")
+              .get(0)
+              .getFileId(),
+          commitMetadataAfterZeroRowGroup
+              .getPartitionToWriteStats()
+              .get("level2")
+              .get(0)
+              .getFileId());
     }
   }
 
