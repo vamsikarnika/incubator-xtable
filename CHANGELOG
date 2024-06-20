@@ -82,3 +82,9 @@ c7023e1 Upgrade to version release-v0.7.0 (#41)
 ---[2024-06-13 17:20:06] [release-v0.8.0] ---
 fc8fc13 [ENG-10140] Use SparkActions for iceberg cleaner (#43)
 289ea7d [ENG-9405] Make file stats extractor configurable (#47)
+
+---[2024-06-20 17:48:07] [release-v0.8.1] ---
+a0e8e7b [ENG-10297] Exclude zero row group files in HudiSource (#42)
+9d9e6e7 [ENG-10140] Fixes flakey tests after adding executor service (#48)
+9fdb5b0 Upgrade to version release-v0.8.0 (#49)
+89a1703 Upgrade to version release-v0.7.1 (#46)
