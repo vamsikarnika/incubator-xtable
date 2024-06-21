@@ -199,22 +199,24 @@ public class IcebergClient implements TargetClient {
   }
 
   @Override
-  public void completeSync() {
-    if (sparkActions == null) {
-      transaction
-          .expireSnapshots()
-          .expireOlderThan(
-              Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
-          .deleteWith(this::safeDelete) // ensures that only metadata files are deleted
-          .cleanExpiredFiles(true)
-          .commit();
-    } else {
-      sparkActions
-          .expireSnapshots(table)
-          .expireOlderThan(
-              Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
-          .deleteWith(this::safeDelete)
-          .execute();
+  public void completeSync(boolean performMetadataMaintenance) {
+    if (performMetadataMaintenance) {
+      if (sparkActions == null) {
+        transaction
+            .expireSnapshots()
+            .expireOlderThan(
+                Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
+            .deleteWith(this::safeDelete) // ensures that only metadata files are deleted
+            .cleanExpiredFiles(true)
+            .commit();
+      } else {
+        sparkActions
+            .expireSnapshots(table)
+            .expireOlderThan(
+                Instant.now().minus(snapshotRetentionInHours, ChronoUnit.HOURS).toEpochMilli())
+            .deleteWith(this::safeDelete)
+            .execute();
+      }
     }
     transaction.commitTransaction();
     transaction = null;

@@ -145,9 +145,9 @@ public class TestHudiTargetClient {
   void completeSync() {
     HudiTargetClient targetClient = getTargetClient(null);
     HudiTargetClient.CommitState mockCommitState = initMocksForBeginSync(targetClient).getLeft();
-    targetClient.completeSync();
+    targetClient.completeSync(false);
     // validate that commit is called
-    verify(mockCommitState).commit();
+    verify(mockCommitState).commit(false);
   }
 
   @Test

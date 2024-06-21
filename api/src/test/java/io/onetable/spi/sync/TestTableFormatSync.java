@@ -22,6 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -105,8 +106,8 @@ public class TestTableFormatSync {
 
     verifyBaseClientCalls(mockTargetClient2, startingTableState, pendingCommitInstants);
     verify(mockTargetClient2).syncFilesForSnapshot(fileGroups);
-    verify(mockTargetClient2).completeSync();
-    verify(mockTargetClient1, never()).completeSync();
+    verify(mockTargetClient2).completeSync(true);
+    verify(mockTargetClient1, never()).completeSync(anyBoolean());
   }
 
   private static void assertSyncResultTimes(SyncResult syncResult, Instant start) {
@@ -198,8 +199,9 @@ public class TestTableFormatSync {
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff2);
     verifyBaseClientCalls(mockTargetClient2, tableState3, pendingCommitInstants);
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff3);
-    verify(mockTargetClient1, times(1)).completeSync();
-    verify(mockTargetClient2, times(3)).completeSync();
+    verify(mockTargetClient1, times(1)).completeSync(false);
+    verify(mockTargetClient2, times(2)).completeSync(false);
+    verify(mockTargetClient2, times(1)).completeSync(true);
   }
 
   @Test
@@ -274,18 +276,20 @@ public class TestTableFormatSync {
       assertSyncResultTimes(client2Results.get(i), start);
     }
 
-    // client1 syncs table changes 1 and 3
+    // client1 syncs table changes 1, 3
     verifyBaseClientCalls(mockTargetClient1, tableState1, pendingCommitInstants);
     verify(mockTargetClient1).syncFilesForDiff(dataFilesDiff1);
     verifyBaseClientCalls(mockTargetClient1, tableState3, pendingCommitInstants);
     verify(mockTargetClient1).syncFilesForDiff(dataFilesDiff3);
-    verify(mockTargetClient1, times(2)).completeSync();
+    verify(mockTargetClient1, times(1)).completeSync(false);
+    verify(mockTargetClient1, times(1)).completeSync(true);
     // client2 syncs table changes 2 and 3
     verifyBaseClientCalls(mockTargetClient2, tableState2, pendingCommitInstants);
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff2);
     verifyBaseClientCalls(mockTargetClient2, tableState3, pendingCommitInstants);
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff3);
-    verify(mockTargetClient2, times(2)).completeSync();
+    verify(mockTargetClient2, times(1)).completeSync(false);
+    verify(mockTargetClient2, times(1)).completeSync(true);
   }
 
   @Test
@@ -330,7 +334,7 @@ public class TestTableFormatSync {
 
     verify(mockTargetClient1, never()).beginSync(any());
     verify(mockTargetClient1, never()).syncFilesForDiff(any());
-    verify(mockTargetClient1, never()).completeSync();
+    verify(mockTargetClient1, never()).completeSync(anyBoolean());
 
     verifyBaseClientCalls(mockTargetClient2, tableState1, pendingCommitInstants);
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff1);

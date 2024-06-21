@@ -76,8 +76,13 @@ public interface TargetClient {
    */
   void beginSync(OneTable table);
 
-  /** Completes the sync and performs any cleanup required. */
-  void completeSync();
+  /**
+   * Completes the sync and performs any cleanup required.
+   *
+   * @param performMetadataMaintenance if set to true,client will run optional metadata maintenance
+   *     like expiring snapshots.
+   */
+  void completeSync(boolean performMetadataMaintenance);
 
   /** Returns the onetable metadata persisted in the target */
   Optional<OneTableMetadata> getTableMetadata();

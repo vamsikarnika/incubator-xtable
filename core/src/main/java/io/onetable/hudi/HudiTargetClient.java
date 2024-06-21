@@ -252,8 +252,8 @@ public class HudiTargetClient implements TargetClient {
   }
 
   @Override
-  public void completeSync() {
-    commitState.commit();
+  public void completeSync(boolean performMetadataMaintenance) {
+    commitState.commit(performMetadataMaintenance);
     commitState = null;
   }
 
@@ -331,7 +331,7 @@ public class HudiTargetClient implements TargetClient {
       this.partitionToReplacedFileIds = replaceMetadata.getPartitionToReplacedFileIds();
     }
 
-    public void commit() {
+    public void commit(boolean performMetadataMaintenance) {
       if (schema == null) {
         try {
           // reuse existing table schema if no schema is provided as part of this commit
@@ -369,11 +369,13 @@ public class HudiTargetClient implements TargetClient {
         if (!metaClient.getTableConfig().isMetadataTableAvailable()) {
           metaClient = HoodieTableMetaClient.reload(metaClient);
         }
-        HoodieJavaTable<?> table =
-            HoodieJavaTable.create(writeClient.getConfig(), engineContext, metaClient);
-        // clean up old commits and archive them
-        markInstantsAsCleaned(table, writeClient.getConfig(), engineContext);
-        runArchiver(table, writeClient.getConfig(), engineContext);
+        if (performMetadataMaintenance) {
+          HoodieJavaTable<?> table =
+              HoodieJavaTable.create(writeClient.getConfig(), engineContext, metaClient);
+          // clean up old commits and archive them
+          markInstantsAsCleaned(table, writeClient.getConfig(), engineContext);
+          runArchiver(table, writeClient.getConfig(), engineContext);
+        }
       }
     }
 

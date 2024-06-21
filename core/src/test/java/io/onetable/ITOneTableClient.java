@@ -531,9 +531,8 @@ public class ITOneTableClient {
                   .getInstantDetails(hoodieInstantContainingRemovedBaseFile)
                   .get(),
               HoodieCommitMetadata.class);
-      String expectedPathForDeletedFile =
-          String.format(
-              "%s/%s",
+      Path expectedPathForDeletedFile =
+          Paths.get(
               table.getBasePath(),
               commitMetadataBeforeZeroRowGroup
                   .getPartitionToWriteStats()
@@ -542,9 +541,7 @@ public class ITOneTableClient {
                   .getPath());
       String actualPathForDeletedFile =
           tableChange.getFilesDiff().getFilesRemoved().stream().findFirst().get().getPhysicalPath();
-      assertEquals(
-          Paths.get(URI.create(expectedPathForDeletedFile)),
-          Paths.get(URI.create(actualPathForDeletedFile)));
+      assertEquals(expectedPathForDeletedFile.toString(), actualPathForDeletedFile);
       // Insert records into empty partition.
       table.insertRecords(20, "level2", true);
       // Incremental sync.
@@ -569,9 +566,8 @@ public class ITOneTableClient {
                   .getInstantDetails(instants.get(instants.size() - 1))
                   .get(),
               HoodieCommitMetadata.class);
-      String expectedPathForAddedFile =
-          String.format(
-              "%s/%s",
+      Path expectedPathForAddedFile =
+          Paths.get(
               table.getBasePath(),
               commitMetadataAfterZeroRowGroup
                   .getPartitionToWriteStats()
@@ -583,9 +579,7 @@ public class ITOneTableClient {
               .findFirst()
               .get()
               .getPhysicalPath();
-      assertEquals(
-          Paths.get(URI.create(expectedPathForAddedFile)),
-          Paths.get(URI.create(actualPathForAddedFile)));
+      assertEquals(expectedPathForAddedFile.toString(), actualPathForAddedFile);
       // Assert fileId changes when data is added to an empty partition containing zero row group
       // file.
       assertNotEquals(

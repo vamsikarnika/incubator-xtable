@@ -161,7 +161,9 @@ public class DeltaClient implements TargetClient {
   }
 
   @Override
-  public void completeSync() {
+  public void completeSync(boolean performMetadataMaintenance) {
+    // performMetadataMaintenance does not have any impact, log retention is handled automatically
+    // in delta commit
     transactionState.commitTransaction();
     transactionState = null;
   }

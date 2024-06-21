@@ -203,7 +203,7 @@ public class ITHudiTargetClient {
     OneTableMetadata latestState =
         OneTableMetadata.of(initialState.getLatestCommitTime(), Collections.emptyList());
     targetClient.syncMetadata(latestState);
-    targetClient.completeSync();
+    targetClient.completeSync(true);
 
     HoodieTableMetaClient metaClient =
         HoodieTableMetaClient.builder().setConf(CONFIGURATION).setBasePath(tableBasePath).build();
@@ -243,7 +243,7 @@ public class ITHudiTargetClient {
         OneTableMetadata.of(initialState.getLatestCommitTime(), Collections.emptyList());
     targetClient.syncSchema(initialState.getReadSchema());
     targetClient.syncMetadata(latestState);
-    targetClient.completeSync();
+    targetClient.completeSync(true);
 
     HoodieTableMetaClient metaClient =
         HoodieTableMetaClient.builder().setConf(CONFIGURATION).setBasePath(tableBasePath).build();
@@ -288,7 +288,7 @@ public class ITHudiTargetClient {
         OneTableMetadata.of(initialState.getLatestCommitTime(), Collections.emptyList());
     targetClient.syncMetadata(latestState);
     targetClient.syncSchema(initialState.getReadSchema());
-    targetClient.completeSync();
+    targetClient.completeSync(true);
 
     HoodieTableMetaClient metaClient =
         HoodieTableMetaClient.builder().setConf(CONFIGURATION).setBasePath(tableBasePath).build();
@@ -382,7 +382,7 @@ public class ITHudiTargetClient {
     OneTableMetadata latestState =
         OneTableMetadata.of(state3.getLatestCommitTime(), Collections.emptyList());
     targetClient.syncMetadata(latestState);
-    targetClient.completeSync();
+    targetClient.completeSync(true);
     return latestState;
   }
 

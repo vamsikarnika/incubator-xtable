@@ -73,7 +73,8 @@ public class TableFormatSync {
                 oneTable,
                 client -> client.syncFilesForSnapshot(snapshot.getPartitionedDataFiles()),
                 startTime,
-                snapshot.getPendingCommits()));
+                snapshot.getPendingCommits(),
+                true));
       } catch (Exception e) {
         log.error("Failed to sync snapshot", e);
         results.put(
@@ -121,7 +122,10 @@ public class TableFormatSync {
                   change.getTableAsOfChange(),
                   client -> client.syncFilesForDiff(change.getFilesDiff()),
                   startTime,
-                  changes.getPendingCommits()));
+                  changes.getPendingCommits(),
+                  !changes
+                      .getTableChanges()
+                      .hasNext())); // only perform maintenance after last change
         } catch (Exception e) {
           log.error("Failed to sync table changes", e);
           resultsForFormat.add(buildResultForError(SyncMode.INCREMENTAL, startTime, e));
@@ -149,7 +153,8 @@ public class TableFormatSync {
       OneTable tableState,
       SyncFiles fileSyncMethod,
       Instant startTime,
-      List<Instant> pendingCommits) {
+      List<Instant> pendingCommits,
+      boolean performMetadataMaintenance) {
     // initialize the sync
     client.beginSync(tableState);
     // sync schema updates
@@ -162,7 +167,7 @@ public class TableFormatSync {
     OneTableMetadata latestState =
         OneTableMetadata.of(tableState.getLatestCommitTime(), pendingCommits);
     client.syncMetadata(latestState);
-    client.completeSync();
+    client.completeSync(performMetadataMaintenance);
 
     return SyncResult.builder()
         .mode(mode)
