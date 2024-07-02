@@ -92,3 +92,7 @@ a0e8e7b [ENG-10297] Exclude zero row group files in HudiSource (#42)
 ---[2024-06-21 07:25:05] [release-v0.8.2] ---
 28a9516 only run maintanence once per sync (#51)
 32c93a9 Upgrade to version release-v0.8.1 (#50)
+
+---[2024-06-24 18:46:28] [release-v0.9.0] ---
+e2f11c6 [ENG-10839] Fix the column id assignment strategy for hudi (#54)
+9a6159e Upgrade to version release-v0.8.2 (#52)
