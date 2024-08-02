@@ -19,6 +19,7 @@
 package io.onetable.client;
 
 import java.util.List;
+import java.util.Properties;
 
 import javax.annotation.Nonnull;
 
@@ -105,6 +106,9 @@ public class PerTableConfig {
    */
   Boolean canUseSparkExecution;
 
+  /** Additional properties for the source client. */
+  Properties sourceClientProperties;
+
   @Builder
   PerTableConfig(
       @NonNull String tableBasePath,
@@ -116,7 +120,8 @@ public class PerTableConfig {
       IcebergCatalogConfig icebergCatalogConfig,
       SyncMode syncMode,
       Integer targetMetadataRetentionInHours,
-      Boolean canUseSparkExecution) {
+      Boolean canUseSparkExecution,
+      Properties sourceClientProperties) {
     // sanitize source path
     this.tableBasePath = sanitizeBasePath(tableBasePath);
     this.tableDataPath = tableDataPath == null ? tableBasePath : sanitizeBasePath(tableDataPath);
@@ -132,6 +137,8 @@ public class PerTableConfig {
     this.targetMetadataRetentionInHours =
         targetMetadataRetentionInHours == null ? 24 * 7 : targetMetadataRetentionInHours;
     this.canUseSparkExecution = canUseSparkExecution != null && canUseSparkExecution;
+    this.sourceClientProperties =
+        sourceClientProperties == null ? new Properties() : sourceClientProperties;
   }
 
   private String sanitizeBasePath(String tableBasePath) {

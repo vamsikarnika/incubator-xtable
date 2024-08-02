@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
@@ -57,7 +58,6 @@ import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.table.timeline.TimelineMetadataUtils;
 import org.apache.hudi.common.table.view.FileSystemViewManager;
 import org.apache.hudi.common.table.view.FileSystemViewStorageConfig;
-import org.apache.hudi.common.table.view.FileSystemViewStorageType;
 import org.apache.hudi.common.table.view.SyncableFileSystemView;
 import org.apache.hudi.common.table.view.TableFileSystemView;
 import org.apache.hudi.metadata.HoodieTableMetadata;
@@ -90,7 +90,8 @@ public class HudiDataFileExtractor implements AutoCloseable {
       HoodieTableMetaClient metaClient,
       HudiPartitionValuesExtractor hudiPartitionValuesExtractor,
       HudiFileStatsExtractor hudiFileStatsExtractor,
-      ExecutorService executorService) {
+      ExecutorService executorService,
+      Properties clientProperties) {
     this.engineContext = new HoodieLocalEngineContext(metaClient.getHadoopConf());
     metadataConfig =
         HoodieMetadataConfig.newBuilder()
@@ -105,10 +106,8 @@ public class HudiDataFileExtractor implements AutoCloseable {
         FileSystemViewManager.createViewManager(
             engineContext,
             metadataConfig,
-            FileSystemViewStorageConfig.newBuilder()
-                .withStorageType(FileSystemViewStorageType.MEMORY)
-                .build(),
-            HoodieCommonConfig.newBuilder().build(),
+            FileSystemViewStorageConfig.newBuilder().fromProperties(clientProperties).build(),
+            HoodieCommonConfig.newBuilder().fromProperties(clientProperties).build(),
             meta -> tableMetadata);
     this.metaClient = metaClient;
     this.partitionValuesExtractor = hudiPartitionValuesExtractor;

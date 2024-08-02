@@ -61,6 +61,7 @@ public class HudiSourceClientProvider extends SourceClientProvider<HoodieInstant
         metaClient,
         sourcePartitionSpecExtractor,
         executorService,
-        new MultiThreadedFileStatsExtractor(metaClient, executorService));
+        new MultiThreadedFileStatsExtractor(metaClient, executorService),
+        sourceTableConfig.getSourceClientProperties());
   }
 }

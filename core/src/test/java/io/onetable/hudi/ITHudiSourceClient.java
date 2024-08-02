@@ -35,6 +35,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -578,7 +579,8 @@ public class ITHudiSourceClient {
         hoodieTableMetaClient,
         partitionSpecExtractor,
         EXECUTOR_SERVICE,
-        new MultiThreadedFileStatsExtractor(hoodieTableMetaClient, EXECUTOR_SERVICE));
+        new MultiThreadedFileStatsExtractor(hoodieTableMetaClient, EXECUTOR_SERVICE),
+        new Properties());
   }
 
   private List<String> removeFileSlice(List<String> files, String fileSlice) {

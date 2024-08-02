@@ -28,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Properties;
 import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 
@@ -63,7 +64,8 @@ public class HudiClient implements SourceClient<HoodieInstant> {
       HoodieTableMetaClient metaClient,
       HudiSourcePartitionSpecExtractor sourcePartitionSpecExtractor,
       ExecutorService executorService,
-      HudiFileStatsExtractor fileStatsExtractor) {
+      HudiFileStatsExtractor fileStatsExtractor,
+      Properties clientProperties) {
     this.metaClient = metaClient;
     this.tableExtractor =
         new HudiTableExtractor(new HudiSchemaExtractor(), sourcePartitionSpecExtractor);
@@ -73,7 +75,8 @@ public class HudiClient implements SourceClient<HoodieInstant> {
             new HudiPartitionValuesExtractor(
                 sourcePartitionSpecExtractor.getPathToPartitionFieldFormat()),
             fileStatsExtractor,
-            executorService);
+            executorService,
+            clientProperties);
   }
 
   @Override
