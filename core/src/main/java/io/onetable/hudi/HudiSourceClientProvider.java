@@ -34,6 +34,15 @@ import io.onetable.spi.extractor.SourceClient;
 /** A concrete implementation of {@link SourceClientProvider} for Hudi table format. */
 @Log4j2
 public class HudiSourceClientProvider extends SourceClientProvider<HoodieInstant> {
+  private final HoodieTableMetaClient providedMetaClient;
+
+  public HudiSourceClientProvider() {
+    this(null);
+  }
+
+  public HudiSourceClientProvider(HoodieTableMetaClient metaClient) {
+    this.providedMetaClient = metaClient;
+  }
 
   @Override
   public SourceClient<HoodieInstant> getSourceClientInstance(PerTableConfig sourceTableConfig) {
@@ -45,11 +54,13 @@ public class HudiSourceClientProvider extends SourceClientProvider<HoodieInstant
       PerTableConfig sourceTableConfig, ExecutorService executorService) {
     this.sourceTableConfig = sourceTableConfig;
     HoodieTableMetaClient metaClient =
-        HoodieTableMetaClient.builder()
-            .setConf(hadoopConf)
-            .setBasePath(this.sourceTableConfig.getTableBasePath())
-            .setLoadActiveTimelineOnLoad(true)
-            .build();
+        providedMetaClient != null
+            ? providedMetaClient
+            : HoodieTableMetaClient.builder()
+                .setConf(hadoopConf)
+                .setBasePath(this.sourceTableConfig.getTableBasePath())
+                .setLoadActiveTimelineOnLoad(true)
+                .build();
     if (!metaClient.getTableConfig().getTableType().equals(HoodieTableType.COPY_ON_WRITE)) {
       log.warn("Source table is Merge On Read. Only base files will be synced");
     }
