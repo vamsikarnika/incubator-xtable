@@ -100,3 +100,7 @@ e2f11c6 [ENG-10839] Fix the column id assignment strategy for hudi (#54)
 ---[2024-08-06 09:56:40] [release-v0.10.0] ---
 eb29ab5 [ENG-12098] Add properties for the source client (#57)
 38f91cb Upgrade to version release-v0.9.0 (#55)
+
+---[2024-09-10 07:55:01] [release-v0.11.0] ---
+1306e3e [ENG-13995] Optionally pass in meta client to HudiSourceClientProvider (#59)
+27e66be Upgrade to version release-v0.10.0 (#58)
