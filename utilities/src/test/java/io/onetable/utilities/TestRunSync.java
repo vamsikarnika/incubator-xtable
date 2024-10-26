@@ -21,15 +21,24 @@ package io.onetable.utilities;
 import static io.onetable.model.storage.TableFormat.DELTA;
 import static io.onetable.model.storage.TableFormat.HUDI;
 import static io.onetable.model.storage.TableFormat.ICEBERG;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Stream;
 
 import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
+import io.onetable.catalog.ExternalCatalogConfig;
 import io.onetable.iceberg.IcebergCatalogConfig;
+import io.onetable.model.catalog.CatalogType;
 import io.onetable.utilities.RunSync.TableFormatClients;
 import io.onetable.utilities.RunSync.TableFormatClients.ClientConfig;
 
@@ -137,5 +146,63 @@ class TestRunSync {
     Assertions.assertEquals(2, catalogConfig.getCatalogOptions().size());
     Assertions.assertEquals("value1", catalogConfig.getCatalogOptions().get("option1"));
     Assertions.assertEquals("value2", catalogConfig.getCatalogOptions().get("option2"));
+  }
+
+  static Stream<Arguments> getExternalCatalogConfigTestArgs() {
+    String configWithCatalogTypeMissing =
+        "- catalogIdentifier: glue-catalog-accountId\n"
+            + "  catalogProperties:\n"
+            + "    externalCatalog.glue.catalogId: accountId\n"
+            + "    externalCatalog.glue.region: region\n"
+            + "  tableFormatsToSync:\n"
+            + "    ICEBERG:\n"
+            + "      databaseName: iceberg_db\n"
+            + "      tableName: iceberg_table";
+    String configWithCatalogPropertiesMissing =
+        "- catalogIdentifier: glue-catalog-accountId\n"
+            + "  catalogType: GLUE\n"
+            + "  tableFormatsToSync:\n"
+            + "    ICEBERG:\n"
+            + "      databaseName: iceberg_db\n"
+            + "      tableName: iceberg_table";
+    String validConfig =
+        "- catalogIdentifier: glue-catalog-accountId\n"
+            + "  catalogType: GLUE\n"
+            + "  catalogProperties:\n"
+            + "    externalCatalog.glue.catalogId: accountId\n"
+            + "    externalCatalog.glue.region: region\n"
+            + "  tableFormatsToSync:\n"
+            + "    ICEBERG:\n"
+            + "      databaseName: iceberg_db\n"
+            + "      tableName: iceberg_table\n"
+            + "    DELTA:\n"
+            + "      databaseName: delta_db\n"
+            + "      tableName: delta_table\n";
+    return Stream.of(
+        Arguments.of(configWithCatalogTypeMissing, true),
+        Arguments.of(configWithCatalogPropertiesMissing, true),
+        Arguments.of(validConfig, false));
+  }
+
+  @ParameterizedTest
+  @MethodSource("getExternalCatalogConfigTestArgs")
+  public void testExternalCatalogConfig(String config, boolean failed) throws IOException {
+    if (failed) {
+      assertThrows(Exception.class, () -> RunSync.loadExternalCatalogConfigs(config.getBytes()));
+    } else {
+      List<ExternalCatalogConfig> catalogConfigs =
+          RunSync.loadExternalCatalogConfigs(config.getBytes());
+      assertEquals(1, catalogConfigs.size());
+      ExternalCatalogConfig catalogConfig = catalogConfigs.get(0);
+      assertEquals(CatalogType.GLUE, catalogConfig.getCatalogType());
+
+      assertEquals(2, catalogConfig.getTableFormatsToSync().size());
+      Map<String, ExternalCatalogConfig.TableIdentifier> formatsToSync =
+          catalogConfig.getTableFormatsToSync();
+      assertEquals("iceberg_db", formatsToSync.get(ICEBERG).getDatabaseName());
+      assertEquals("iceberg_table", formatsToSync.get(ICEBERG).getTableName());
+      assertEquals("delta_db", formatsToSync.get(DELTA).getDatabaseName());
+      assertEquals("delta_table", formatsToSync.get(DELTA).getTableName());
+    }
   }
 }

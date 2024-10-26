@@ -16,30 +16,11 @@
  * limitations under the License.
  */
  
-package io.onetable.model.exception;
+package io.onetable.model.catalog;
 
-public enum OneTableErrorCode {
-  INVALID_CONFIGURATION(10001),
-  INVALID_PARTITION_SPEC(10002),
-  INVALID_PARTITION_VALUE(10003),
-  IO_EXCEPTION(10004),
-  INVALID_SCHEMA(10005),
-  UNSUPPORTED_SCHEMA_TYPE(10006),
-  UNSUPPORTED_FEATURE(10007),
-  PARSE_EXCEPTION(10008),
-
-  CATALOG_REFRESH_EXCEPTION(10009),
-
-  CATALOG_SYNC_INVALID_PERMISSIONS_EXCEPTION(10010),
-  CATALOG_SYNC_UNKNOWN_EXCEPTION(10011);
-
-  private final int errorCode;
-
-  OneTableErrorCode(int errorCode) {
-    this.errorCode = errorCode;
-  }
-
-  public int getErrorCode() {
-    return errorCode;
-  }
+public enum CatalogType {
+  /** AWS Glue catalog. */
+  GLUE,
+  /** Hive Metastore. */
+  HMS
 }

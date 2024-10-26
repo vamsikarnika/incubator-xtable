@@ -16,30 +16,19 @@
  * limitations under the License.
  */
  
-package io.onetable.model.exception;
+package io.onetable.exception;
 
-public enum OneTableErrorCode {
-  INVALID_CONFIGURATION(10001),
-  INVALID_PARTITION_SPEC(10002),
-  INVALID_PARTITION_VALUE(10003),
-  IO_EXCEPTION(10004),
-  INVALID_SCHEMA(10005),
-  UNSUPPORTED_SCHEMA_TYPE(10006),
-  UNSUPPORTED_FEATURE(10007),
-  PARSE_EXCEPTION(10008),
+import io.onetable.model.OneTable;
+import io.onetable.model.exception.OneTableErrorCode;
+import io.onetable.model.exception.OneTableException;
 
-  CATALOG_REFRESH_EXCEPTION(10009),
+/**
+ * CatalogSyncException should be used for {@link
+ * io.onetable.spi.sync.CatalogSyncClient#syncTable(OneTable)} failure
+ */
+public class CatalogSyncException extends OneTableException {
 
-  CATALOG_SYNC_INVALID_PERMISSIONS_EXCEPTION(10010),
-  CATALOG_SYNC_UNKNOWN_EXCEPTION(10011);
-
-  private final int errorCode;
-
-  OneTableErrorCode(int errorCode) {
-    this.errorCode = errorCode;
-  }
-
-  public int getErrorCode() {
-    return errorCode;
+  public CatalogSyncException(OneTableErrorCode errorCode, String message, Throwable e) {
+    super(errorCode, message, e);
   }
 }

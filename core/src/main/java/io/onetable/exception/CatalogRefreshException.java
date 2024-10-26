@@ -16,30 +16,18 @@
  * limitations under the License.
  */
  
-package io.onetable.model.exception;
+package io.onetable.exception;
 
-public enum OneTableErrorCode {
-  INVALID_CONFIGURATION(10001),
-  INVALID_PARTITION_SPEC(10002),
-  INVALID_PARTITION_VALUE(10003),
-  IO_EXCEPTION(10004),
-  INVALID_SCHEMA(10005),
-  UNSUPPORTED_SCHEMA_TYPE(10006),
-  UNSUPPORTED_FEATURE(10007),
-  PARSE_EXCEPTION(10008),
+import io.onetable.model.exception.OneTableErrorCode;
+import io.onetable.model.exception.OneTableException;
 
-  CATALOG_REFRESH_EXCEPTION(10009),
+/**
+ * CatalogRefreshException should be used if there is a failure during refresh table operation, and
+ * we need to drop and recreate the table again during the syncTable operation
+ */
+public class CatalogRefreshException extends OneTableException {
 
-  CATALOG_SYNC_INVALID_PERMISSIONS_EXCEPTION(10010),
-  CATALOG_SYNC_UNKNOWN_EXCEPTION(10011);
-
-  private final int errorCode;
-
-  OneTableErrorCode(int errorCode) {
-    this.errorCode = errorCode;
-  }
-
-  public int getErrorCode() {
-    return errorCode;
+  public CatalogRefreshException(String message, Throwable e) {
+    super(OneTableErrorCode.CATALOG_REFRESH_EXCEPTION, message, e);
   }
 }

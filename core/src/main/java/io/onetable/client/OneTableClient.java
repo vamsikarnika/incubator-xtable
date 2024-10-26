@@ -25,6 +25,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -40,6 +41,7 @@ import lombok.extern.log4j.Log4j2;
 
 import org.apache.hadoop.conf.Configuration;
 
+import io.onetable.catalog.CatalogClientFactory;
 import io.onetable.constants.OneTableConstants;
 import io.onetable.exception.OneIOException;
 import io.onetable.model.IncrementalTableChanges;
@@ -50,6 +52,7 @@ import io.onetable.model.sync.SyncMode;
 import io.onetable.model.sync.SyncResult;
 import io.onetable.spi.extractor.ExtractFromSource;
 import io.onetable.spi.extractor.SourceClient;
+import io.onetable.spi.sync.CatalogSyncClient;
 import io.onetable.spi.sync.TableFormatSync;
 import io.onetable.spi.sync.TargetClient;
 
@@ -68,6 +71,7 @@ import io.onetable.spi.sync.TargetClient;
 public class OneTableClient implements AutoCloseable {
   private final Configuration conf;
   private final TableFormatClientFactory tableFormatClientFactory;
+  private final CatalogClientFactory catalogClientFactory;
   private final TableFormatSync tableFormatSync;
   private final ExecutorService executorService;
 
@@ -75,6 +79,7 @@ public class OneTableClient implements AutoCloseable {
     this(
         conf,
         TableFormatClientFactory.getInstance(),
+        CatalogClientFactory.getInstance(),
         TableFormatSync.getInstance(),
         Executors.newFixedThreadPool(OneTableConstants.DEFAULT_PARALLELISM));
   }
@@ -83,6 +88,7 @@ public class OneTableClient implements AutoCloseable {
     this(
         conf,
         TableFormatClientFactory.getInstance(),
+        CatalogClientFactory.getInstance(),
         TableFormatSync.getInstance(),
         executorService);
   }
@@ -107,36 +113,36 @@ public class OneTableClient implements AutoCloseable {
         sourceClientProvider.getSourceClientInstance(config, executorService)) {
       ExtractFromSource<COMMIT> source = ExtractFromSource.of(sourceClient);
 
-      Map<String, TargetClient> syncClientByFormat =
-          config.getTargetTableFormats().stream()
-              .collect(
-                  Collectors.toMap(
-                      Function.identity(),
-                      tableFormat ->
-                          tableFormatClientFactory.createForFormat(
-                              tableFormat, config, conf, executorService)));
+      // Build syncClients by table format
+      Map<String, TableFormatSync.TableSyncClients> syncClientsByFormat =
+          getSyncClientsByFormat(config);
       // State for each TableFormat
       Map<String, Optional<OneTableMetadata>> lastSyncMetadataByFormat =
-          syncClientByFormat.entrySet().stream()
+          syncClientsByFormat.entrySet().stream()
               .collect(
                   Collectors.toMap(
-                      Map.Entry::getKey, entry -> entry.getValue().getTableMetadata()));
-      Map<String, TargetClient> formatsToSyncIncrementally =
+                      Map.Entry::getKey,
+                      entry -> entry.getValue().getTargetClient().getTableMetadata()));
+
+      Map<String, TableFormatSync.TableSyncClients> formatsToSyncIncrementally =
           getFormatsToSyncIncrementally(
-              config, syncClientByFormat, lastSyncMetadataByFormat, source.getSourceClient());
-      Map<String, TargetClient> formatsToSyncBySnapshot =
-          syncClientByFormat.entrySet().stream()
+              config, syncClientsByFormat, lastSyncMetadataByFormat, source.getSourceClient());
+      Map<String, TableFormatSync.TableSyncClients> formatsToSyncBySnapshot =
+          syncClientsByFormat.entrySet().stream()
               .filter(entry -> !formatsToSyncIncrementally.containsKey(entry.getKey()))
               .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
       SyncResultForTableFormats syncResultForSnapshotSync =
           formatsToSyncBySnapshot.isEmpty()
               ? SyncResultForTableFormats.builder().build()
-              : syncSnapshot(formatsToSyncBySnapshot, source);
+              : syncSnapshot(formatsToSyncBySnapshot.values(), source);
       SyncResultForTableFormats syncResultForIncrementalSync =
           formatsToSyncIncrementally.isEmpty()
               ? SyncResultForTableFormats.builder().build()
               : syncIncrementalChanges(
-                  formatsToSyncIncrementally, lastSyncMetadataByFormat, source);
+                  getSyncClientsWithMetadata(formatsToSyncIncrementally, lastSyncMetadataByFormat),
+                  source);
+
       Map<String, SyncResult> syncResultsMerged =
           new HashMap<>(syncResultForIncrementalSync.getLastSyncResult());
       syncResultsMerged.putAll(syncResultForSnapshotSync.getLastSyncResult());
@@ -164,16 +170,16 @@ public class OneTableClient implements AutoCloseable {
         .collect(Collectors.joining(","));
   }
 
-  private <COMMIT> Map<String, TargetClient> getFormatsToSyncIncrementally(
+  private <COMMIT> Map<String, TableFormatSync.TableSyncClients> getFormatsToSyncIncrementally(
       PerTableConfig perTableConfig,
-      Map<String, TargetClient> syncClientByFormat,
+      Map<String, TableFormatSync.TableSyncClients> syncClientsByFormat,
       Map<String, Optional<OneTableMetadata>> lastSyncMetadataByFormat,
       SourceClient<COMMIT> sourceClient) {
     if (perTableConfig.getSyncMode() == SyncMode.FULL) {
       // Full sync requested by config, hence no incremental sync.
       return Collections.emptyMap();
     }
-    return syncClientByFormat.entrySet().stream()
+    return syncClientsByFormat.entrySet().stream()
         .filter(
             entry -> {
               Optional<Instant> lastSyncInstant =
@@ -191,32 +197,23 @@ public class OneTableClient implements AutoCloseable {
   }
 
   private <COMMIT> SyncResultForTableFormats syncSnapshot(
-      Map<String, TargetClient> syncClientByFormat, ExtractFromSource<COMMIT> source) {
+      Collection<TableFormatSync.TableSyncClients> syncClients, ExtractFromSource<COMMIT> source) {
     OneSnapshot snapshot = source.extractSnapshot();
     Map<String, SyncResult> syncResultsByFormat =
-        tableFormatSync.syncSnapshot(syncClientByFormat.values(), snapshot);
+        tableFormatSync.syncSnapshot(syncClients, snapshot);
     return SyncResultForTableFormats.builder().lastSyncResult(syncResultsByFormat).build();
   }
 
   private <COMMIT> SyncResultForTableFormats syncIncrementalChanges(
-      Map<String, TargetClient> syncClientByFormat,
-      Map<String, Optional<OneTableMetadata>> lastSyncMetadataByFormat,
+      Map<TableFormatSync.TableSyncClients, OneTableMetadata> syncClientsWithMetadata,
       ExtractFromSource<COMMIT> source) {
     Map<String, SyncResult> syncResultsByFormat = Collections.emptyMap();
-    Map<TargetClient, OneTableMetadata> filteredSyncMetadataByFormat =
-        lastSyncMetadataByFormat.entrySet().stream()
-            .filter(entry -> syncClientByFormat.containsKey(entry.getKey()))
-            .collect(
-                Collectors.toMap(
-                    entry -> syncClientByFormat.get(entry.getKey()),
-                    entry -> entry.getValue().get()));
-
     InstantsForIncrementalSync instantsForIncrementalSync =
-        getMostOutOfSyncCommitAndPendingCommits(filteredSyncMetadataByFormat);
+        getMostOutOfSyncCommitAndPendingCommits(syncClientsWithMetadata);
     IncrementalTableChanges incrementalTableChanges =
         source.extractTableChanges(instantsForIncrementalSync);
     Map<String, List<SyncResult>> allResults =
-        tableFormatSync.syncChanges(filteredSyncMetadataByFormat, incrementalTableChanges);
+        tableFormatSync.syncChanges(syncClientsWithMetadata, incrementalTableChanges);
     // return only the last sync result in the list of results for each format
     syncResultsByFormat =
         allResults.entrySet().stream()
@@ -224,6 +221,46 @@ public class OneTableClient implements AutoCloseable {
                 Collectors.toMap(
                     Map.Entry::getKey, entry -> entry.getValue().get(entry.getValue().size() - 1)));
     return SyncResultForTableFormats.builder().lastSyncResult(syncResultsByFormat).build();
+  }
+
+  private Map<TableFormatSync.TableSyncClients, OneTableMetadata> getSyncClientsWithMetadata(
+      Map<String, TableFormatSync.TableSyncClients> syncClientsByFormat,
+      Map<String, Optional<OneTableMetadata>> lastSyncMetadataByFormat) {
+    return lastSyncMetadataByFormat.entrySet().stream()
+        .filter(entry -> syncClientsByFormat.containsKey(entry.getKey()))
+        .collect(
+            Collectors.toMap(
+                entry -> syncClientsByFormat.get(entry.getKey()), entry -> entry.getValue().get()));
+  }
+
+  private Map<String, TableFormatSync.TableSyncClients> getSyncClientsByFormat(
+      PerTableConfig config) {
+    return config.getTargetTableFormats().stream()
+        .collect(
+            Collectors.toMap(
+                Function.identity(),
+                tableFormat -> {
+                  // create target client
+                  TargetClient targetClient =
+                      tableFormatClientFactory.createForFormat(
+                          tableFormat, config, conf, executorService);
+                  // create catalog sync clients
+                  List<CatalogSyncClient> catalogSyncClients =
+                      config.getExternalCatalogConfigs().stream()
+                          .filter(
+                              externalCatalogConfig ->
+                                  externalCatalogConfig
+                                      .getTableFormatsToSync()
+                                      .containsKey(tableFormat))
+                          .map(
+                              externalCatalogConfig ->
+                                  catalogClientFactory.createForCatalogAndFormat(
+                                      tableFormat, externalCatalogConfig, conf))
+                          .flatMap(Collection::stream)
+                          .filter(Objects::nonNull)
+                          .collect(Collectors.toList());
+                  return new TableFormatSync.TableSyncClients(targetClient, catalogSyncClients);
+                }));
   }
 
   /**
@@ -264,7 +301,7 @@ public class OneTableClient implements AutoCloseable {
   }
 
   private InstantsForIncrementalSync getMostOutOfSyncCommitAndPendingCommits(
-      Map<TargetClient, OneTableMetadata> lastSyncMetadataByFormat) {
+      Map<TableFormatSync.TableSyncClients, OneTableMetadata> lastSyncMetadataByFormat) {
     Optional<Instant> mostOutOfSyncCommit =
         lastSyncMetadataByFormat.values().stream()
             .map(OneTableMetadata::getLastInstantSynced)

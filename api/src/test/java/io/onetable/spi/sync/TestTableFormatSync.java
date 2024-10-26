@@ -59,6 +59,8 @@ import io.onetable.model.sync.SyncResult;
 public class TestTableFormatSync {
   private final TargetClient mockTargetClient1 = mock(TargetClient.class);
   private final TargetClient mockTargetClient2 = mock(TargetClient.class);
+  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient1 = mock(CatalogSyncClient.class);
+  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient2 = mock(CatalogSyncClient.class);
 
   @Test
   void syncSnapshotWithFailureForOneFormat() {
@@ -83,7 +85,11 @@ public class TestTableFormatSync {
     doThrow(new RuntimeException("Failure")).when(mockTargetClient1).beginSync(startingTableState);
     Map<String, SyncResult> result =
         TableFormatSync.getInstance()
-            .syncSnapshot(Arrays.asList(mockTargetClient1, mockTargetClient2), snapshot);
+            .syncSnapshot(
+                Arrays.asList(
+                    getSyncClients(mockTargetClient1, TableFormat.ICEBERG),
+                    getSyncClients(mockTargetClient2, TableFormat.DELTA)),
+                snapshot);
 
     assertEquals(2, result.size());
     SyncResult successResult = result.get(TableFormat.DELTA);
@@ -108,6 +114,8 @@ public class TestTableFormatSync {
     verify(mockTargetClient2).syncFilesForSnapshot(fileGroups);
     verify(mockTargetClient2).completeSync(true);
     verify(mockTargetClient1, never()).completeSync(anyBoolean());
+    verify(mockIcebergGlueCatalogSyncClient1, never()).syncTable(any());
+    verify(mockIcebergGlueCatalogSyncClient2, never()).syncTable(any());
   }
 
   private static void assertSyncResultTimes(SyncResult syncResult, Instant start) {
@@ -146,12 +154,12 @@ public class TestTableFormatSync {
             .tableChanges(tableChanges.iterator())
             .build();
 
-    Map<TargetClient, OneTableMetadata> clientWithMetadata = new HashMap<>();
+    Map<TableFormatSync.TableSyncClients, OneTableMetadata> clientWithMetadata = new HashMap<>();
     clientWithMetadata.put(
-        mockTargetClient1,
+        getSyncClients(mockTargetClient1, TableFormat.ICEBERG),
         OneTableMetadata.of(Instant.now().minus(1, ChronoUnit.HOURS), Collections.emptyList()));
     clientWithMetadata.put(
-        mockTargetClient2,
+        getSyncClients(mockTargetClient2, TableFormat.DELTA),
         OneTableMetadata.of(Instant.now().minus(1, ChronoUnit.HOURS), Collections.emptyList()));
 
     Map<String, List<SyncResult>> result =
@@ -202,6 +210,8 @@ public class TestTableFormatSync {
     verify(mockTargetClient1, times(1)).completeSync(false);
     verify(mockTargetClient2, times(2)).completeSync(false);
     verify(mockTargetClient2, times(1)).completeSync(true);
+    verify(mockIcebergGlueCatalogSyncClient1, never()).syncTable(any());
+    verify(mockIcebergGlueCatalogSyncClient2, never()).syncTable(any());
   }
 
   @Test
@@ -231,17 +241,17 @@ public class TestTableFormatSync {
             .tableChanges(tableChanges.iterator())
             .build();
 
-    Map<TargetClient, OneTableMetadata> clientWithMetadata = new HashMap<>();
+    Map<TableFormatSync.TableSyncClients, OneTableMetadata> clientWithMetadata = new HashMap<>();
     // mockTargetClient1 will have the first table change as a previously pending instant and
     // otherwise be synced up to the 2nd change
     clientWithMetadata.put(
-        mockTargetClient1,
+        getSyncClients(mockTargetClient1, TableFormat.ICEBERG),
         OneTableMetadata.of(
             tableChange2.getTableAsOfChange().getLatestCommitTime(),
             Collections.singletonList(tableChange1.getTableAsOfChange().getLatestCommitTime())));
     // mockTargetClient2 will have synced the first table change previously
     clientWithMetadata.put(
-        mockTargetClient2,
+        getSyncClients(mockTargetClient2, TableFormat.DELTA),
         OneTableMetadata.of(
             tableChange1.getTableAsOfChange().getLatestCommitTime(), Collections.emptyList()));
 
@@ -290,6 +300,8 @@ public class TestTableFormatSync {
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff3);
     verify(mockTargetClient2, times(1)).completeSync(false);
     verify(mockTargetClient2, times(1)).completeSync(true);
+    verify(mockIcebergGlueCatalogSyncClient1, times(1)).syncTable(tableState3);
+    verify(mockIcebergGlueCatalogSyncClient2, times(1)).syncTable(tableState3);
   }
 
   @Test
@@ -311,13 +323,14 @@ public class TestTableFormatSync {
             .tableChanges(tableChanges.iterator())
             .build();
 
-    Map<TargetClient, OneTableMetadata> clientWithMetadata = new HashMap<>();
+    Map<TableFormatSync.TableSyncClients, OneTableMetadata> clientWithMetadata = new HashMap<>();
     // mockTargetClient1 will have nothing to sync
     clientWithMetadata.put(
-        mockTargetClient1, OneTableMetadata.of(Instant.now(), Collections.emptyList()));
+        getSyncClients(mockTargetClient1, TableFormat.ICEBERG),
+        OneTableMetadata.of(Instant.now(), Collections.emptyList()));
     // mockTargetClient2 will have synced the first table change previously
     clientWithMetadata.put(
-        mockTargetClient2,
+        getSyncClients(mockTargetClient2, TableFormat.DELTA),
         OneTableMetadata.of(Instant.now().minus(1, ChronoUnit.HOURS), Collections.emptyList()));
 
     Map<String, List<SyncResult>> result =
@@ -338,6 +351,80 @@ public class TestTableFormatSync {
 
     verifyBaseClientCalls(mockTargetClient2, tableState1, pendingCommitInstants);
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff1);
+    verify(mockIcebergGlueCatalogSyncClient1, never()).syncTable(any());
+    verify(mockIcebergGlueCatalogSyncClient2, never()).syncTable(any());
+  }
+
+  @Test
+  void syncSnapshotWithFailureDuringCatalogSyncForOneFormat() {
+    Instant start = Instant.now();
+    OneTable startingTableState = getTableState(1);
+    List<OneFileGroup> fileGroups =
+        Collections.singletonList(
+            OneFileGroup.builder()
+                .files(
+                    Collections.singletonList(
+                        OneDataFile.builder().physicalPath("/tmp/path/file.parquet").build()))
+                .build());
+    List<Instant> pendingCommitInstants = Collections.singletonList(Instant.now());
+    OneSnapshot snapshot =
+        OneSnapshot.builder()
+            .table(startingTableState)
+            .partitionedDataFiles(fileGroups)
+            .pendingCommits(pendingCommitInstants)
+            .build();
+    when(mockTargetClient1.getTableFormat()).thenReturn(TableFormat.ICEBERG);
+    when(mockTargetClient2.getTableFormat()).thenReturn(TableFormat.DELTA);
+    doThrow(new RuntimeException("Failure"))
+        .when(mockIcebergGlueCatalogSyncClient2)
+        .syncTable(any(OneTable.class));
+    Map<String, SyncResult> result =
+        TableFormatSync.getInstance()
+            .syncSnapshot(
+                Arrays.asList(
+                    getSyncClients(mockTargetClient1, TableFormat.ICEBERG),
+                    getSyncClients(mockTargetClient2, TableFormat.DELTA)),
+                snapshot);
+
+    assertEquals(2, result.size());
+    SyncResult successResult = result.get(TableFormat.DELTA);
+    assertEquals(SyncResult.SyncStatus.SUCCESS, successResult.getStatus());
+    assertEquals(SyncMode.FULL, successResult.getMode());
+    assertEquals(startingTableState.getLatestCommitTime(), successResult.getLastInstantSynced());
+    assertSyncResultTimes(successResult, start);
+
+    SyncResult failureResult = result.get(TableFormat.ICEBERG);
+    assertEquals(SyncMode.FULL, failureResult.getMode());
+    assertSyncResultTimes(failureResult, start);
+    assertEquals(
+        SyncResult.SyncStatus.builder()
+            .statusCode(SyncResult.SyncStatusCode.ERROR)
+            .errorMessage("Failure")
+            .errorDescription("Failed to sync FULL")
+            .canRetryOnFailure(true)
+            .build(),
+        failureResult.getStatus());
+
+    verifyBaseClientCalls(mockTargetClient2, startingTableState, pendingCommitInstants);
+    verify(mockTargetClient2).syncFilesForSnapshot(fileGroups);
+    verify(mockTargetClient2).completeSync(true);
+    verify(mockTargetClient1).completeSync(true);
+    verify(mockIcebergGlueCatalogSyncClient1, times(1)).syncTable(startingTableState);
+    verify(mockIcebergGlueCatalogSyncClient2, times(1)).syncTable(startingTableState);
+  }
+
+  private List<CatalogSyncClient> getMockCatalogSyncClientsForFormat(String tableFormat) {
+    if (tableFormat.equals(TableFormat.ICEBERG)) {
+      return Arrays.asList(mockIcebergGlueCatalogSyncClient1, mockIcebergGlueCatalogSyncClient2);
+    } else {
+      return Collections.emptyList();
+    }
+  }
+
+  private TableFormatSync.TableSyncClients getSyncClients(
+      TargetClient targetClient, String tableFormat) {
+    return new TableFormatSync.TableSyncClients(
+        targetClient, getMockCatalogSyncClientsForFormat(tableFormat));
   }
 
   /**

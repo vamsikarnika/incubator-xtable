@@ -16,30 +16,30 @@
  * limitations under the License.
  */
  
-package io.onetable.model.exception;
+package io.onetable.catalog.glue;
 
-public enum OneTableErrorCode {
-  INVALID_CONFIGURATION(10001),
-  INVALID_PARTITION_SPEC(10002),
-  INVALID_PARTITION_VALUE(10003),
-  IO_EXCEPTION(10004),
-  INVALID_SCHEMA(10005),
-  UNSUPPORTED_SCHEMA_TYPE(10006),
-  UNSUPPORTED_FEATURE(10007),
-  PARSE_EXCEPTION(10008),
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.ToString;
 
-  CATALOG_REFRESH_EXCEPTION(10009),
+import com.fasterxml.jackson.annotation.JsonProperty;
 
-  CATALOG_SYNC_INVALID_PERMISSIONS_EXCEPTION(10010),
-  CATALOG_SYNC_UNKNOWN_EXCEPTION(10011);
+@Getter
+@EqualsAndHashCode
+@ToString
+public class GlueCatalogConfig {
 
-  private final int errorCode;
+  @JsonProperty("externalCatalog.glue.catalogId")
+  private String catalogId;
 
-  OneTableErrorCode(int errorCode) {
-    this.errorCode = errorCode;
-  }
+  @JsonProperty("externalCatalog.glue.region")
+  private String region;
 
-  public int getErrorCode() {
-    return errorCode;
-  }
+  @JsonProperty("externalCatalog.glue.credentialsProviderClass")
+  private String clientCredentialsProviderClass;
+
+  @JsonProperty("externalCatalog.glue.lakeFormationEnabled")
+  // TODO: Add lake formation support for Iceberg<>Glue sync
+  // [https://app.clickup.com/t/18029943/ENG-16363]
+  private boolean lakeFormationEnabled;
 }

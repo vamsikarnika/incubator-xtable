@@ -31,6 +31,8 @@ import java.util.stream.Collectors;
 
 import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
+import lombok.NonNull;
+import lombok.Value;
 import lombok.extern.log4j.Log4j2;
 
 import io.onetable.model.IncrementalTableChanges;
@@ -54,15 +56,16 @@ public class TableFormatSync {
   /**
    * Syncs the provided snapshot to the target table formats.
    *
-   * @param targetClients the targets to sync with the snapshot
+   * @param tableSyncClients target and catalog sync clients
    * @param snapshot the snapshot to sync
    * @return the result of the sync process
    */
   public Map<String, SyncResult> syncSnapshot(
-      Collection<TargetClient> targetClients, OneSnapshot snapshot) {
+      Collection<TableSyncClients> tableSyncClients, OneSnapshot snapshot) {
     Instant startTime = Instant.now();
     Map<String, SyncResult> results = new HashMap<>();
-    for (TargetClient targetClient : targetClients) {
+    for (TableSyncClients syncClients : tableSyncClients) {
+      TargetClient targetClient = syncClients.getTargetClient();
       try {
         OneTable oneTable = snapshot.getTable();
         results.put(
@@ -74,7 +77,8 @@ public class TableFormatSync {
                 client -> client.syncFilesForSnapshot(snapshot.getPartitionedDataFiles()),
                 startTime,
                 snapshot.getPendingCommits(),
-                true));
+                true,
+                syncClients.getCatalogSyncClients()));
       } catch (Exception e) {
         log.error("Failed to sync snapshot", e);
         results.put(
@@ -87,19 +91,20 @@ public class TableFormatSync {
   /**
    * Syncs a set of changes to the target table formats.
    *
-   * @param targetClientWithMetadata a map of target clients to their last sync metadata
+   * @param tableSyncClientsWithMetadata a map of target and catalog sync clients to their last sync
+   *     metadata
    * @param changes the changes from the source table format that need to be applied
    * @return the results of trying to sync each change
    */
   public Map<String, List<SyncResult>> syncChanges(
-      Map<TargetClient, OneTableMetadata> targetClientWithMetadata,
+      Map<TableSyncClients, OneTableMetadata> tableSyncClientsWithMetadata,
       IncrementalTableChanges changes) {
     Map<String, List<SyncResult>> results = new HashMap<>();
     Set<TargetClient> clientsWithFailures = new HashSet<>();
     while (changes.getTableChanges().hasNext()) {
       TableChange change = changes.getTableChanges().next();
-      Collection<TargetClient> clientsToSync =
-          targetClientWithMetadata.entrySet().stream()
+      Collection<TableSyncClients> tableSyncClients =
+          tableSyncClientsWithMetadata.entrySet().stream()
               .filter(
                   entry -> {
                     OneTableMetadata metadata = entry.getValue();
@@ -107,7 +112,8 @@ public class TableFormatSync {
                   })
               .map(Map.Entry::getKey)
               .collect(Collectors.toList());
-      for (TargetClient targetClient : clientsToSync) {
+      for (TableSyncClients syncClients : tableSyncClients) {
+        TargetClient targetClient = syncClients.getTargetClient();
         if (clientsWithFailures.contains(targetClient)) {
           continue;
         }
@@ -115,6 +121,7 @@ public class TableFormatSync {
         List<SyncResult> resultsForFormat =
             results.computeIfAbsent(targetClient.getTableFormat(), key -> new ArrayList<>());
         try {
+          boolean lastTableChange = !changes.getTableChanges().hasNext();
           resultsForFormat.add(
               getSyncResult(
                   targetClient,
@@ -123,9 +130,8 @@ public class TableFormatSync {
                   client -> client.syncFilesForDiff(change.getFilesDiff()),
                   startTime,
                   changes.getPendingCommits(),
-                  !changes
-                      .getTableChanges()
-                      .hasNext())); // only perform maintenance after last change
+                  lastTableChange, // only perform maintenance and catalog sync after last change.
+                  syncClients.getCatalogSyncClients()));
         } catch (Exception e) {
           log.error("Failed to sync table changes", e);
           resultsForFormat.add(buildResultForError(SyncMode.INCREMENTAL, startTime, e));
@@ -154,7 +160,8 @@ public class TableFormatSync {
       SyncFiles fileSyncMethod,
       Instant startTime,
       List<Instant> pendingCommits,
-      boolean performMetadataMaintenance) {
+      boolean performMetadataMaintenance,
+      List<CatalogSyncClient> catalogSyncClients) {
     // initialize the sync
     client.beginSync(tableState);
     // sync schema updates
@@ -167,7 +174,13 @@ public class TableFormatSync {
     OneTableMetadata latestState =
         OneTableMetadata.of(tableState.getLatestCommitTime(), pendingCommits);
     client.syncMetadata(latestState);
+    // Complete sync
     client.completeSync(performMetadataMaintenance);
+    // Sync latest state to catalogs (In case of incremental sync, this will happen after last
+    // change)
+    if (performMetadataMaintenance) {
+      catalogSyncClients.forEach(catalogSyncClient -> catalogSyncClient.syncTable(tableState));
+    }
 
     return SyncResult.builder()
         .mode(mode)
@@ -196,5 +209,11 @@ public class TableFormatSync {
         .syncStartTime(startTime)
         .syncDuration(Duration.between(startTime, Instant.now()))
         .build();
+  }
+
+  @Value
+  public static class TableSyncClients {
+    @NonNull TargetClient targetClient;
+    @NonNull List<CatalogSyncClient> catalogSyncClients;
   }
 }

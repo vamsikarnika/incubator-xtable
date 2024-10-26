@@ -18,6 +18,7 @@
  
 package io.onetable.client;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -31,6 +32,7 @@ import org.apache.hadoop.fs.Path;
 
 import com.google.common.base.Preconditions;
 
+import io.onetable.catalog.ExternalCatalogConfig;
 import io.onetable.hudi.HudiSourceConfig;
 import io.onetable.iceberg.IcebergCatalogConfig;
 import io.onetable.model.sync.SyncMode;
@@ -83,6 +85,57 @@ public class PerTableConfig {
   IcebergCatalogConfig icebergCatalogConfig;
 
   /**
+   * A list of external catalog configurations: These are the config that allows to sync datasets to
+   * external catalog (Glue, HMS etc.) to be able to query them via various query engines.
+   *
+   * <p>- catalogIdentifier: glue-catalog-accountId-123
+   *
+   * <ul>
+   *   <li>catalogProperties:
+   *       <ul>
+   *         <li>externalCatalog.glue.catalogId: 123
+   *         <li>externalCatalog.glue.region: us-west-2
+   *       </ul>
+   *   <li>tableFormatsToSync:
+   *       <ul>
+   *         <li>ICEBERG:
+   *             <ul>
+   *               <li>databaseName: marketplace
+   *               <li>tableName: accounts
+   *             </ul>
+   *         <li>HUDI:
+   *             <ul>
+   *               <li>databaseName: marketplace_hudi
+   *               <li>tableName: accounts
+   *             </ul>
+   *       </ul>
+   * </ul>
+   *
+   * - catalogIdentifier: hms-catalog-xyz
+   *
+   * <ul>
+   *   <li>catalogProperties:
+   *       <ul>
+   *         <li>externalCatalog.hms.uri: thrift://localhost:9083
+   *       </ul>
+   *   <li>tableFormatsToSync:
+   *       <ul>
+   *         <li>ICEBERG:
+   *             <ul>
+   *               <li>databaseName: marketplace
+   *               <li>tableName: accounts_iceberg
+   *             </ul>
+   *         <li>HUDI:
+   *             <ul>
+   *               <li>databaseName: marketplace
+   *               <li>tableName: accounts_hudi
+   *             </ul>
+   *       </ul>
+   * </ul>
+   */
+  List<ExternalCatalogConfig> externalCatalogConfigs;
+
+  /**
    * Mode of a sync. FULL is only supported right now.
    *
    * <ul>
@@ -121,7 +174,8 @@ public class PerTableConfig {
       SyncMode syncMode,
       Integer targetMetadataRetentionInHours,
       Boolean canUseSparkExecution,
-      Properties sourceClientProperties) {
+      Properties sourceClientProperties,
+      List<ExternalCatalogConfig> externalCatalogConfigs) {
     // sanitize source path
     this.tableBasePath = sanitizeBasePath(tableBasePath);
     this.tableDataPath = tableDataPath == null ? tableBasePath : sanitizeBasePath(tableDataPath);
@@ -139,6 +193,8 @@ public class PerTableConfig {
     this.canUseSparkExecution = canUseSparkExecution != null && canUseSparkExecution;
     this.sourceClientProperties =
         sourceClientProperties == null ? new Properties() : sourceClientProperties;
+    this.externalCatalogConfigs =
+        externalCatalogConfigs == null ? Collections.emptyList() : externalCatalogConfigs;
   }
 
   private String sanitizeBasePath(String tableBasePath) {

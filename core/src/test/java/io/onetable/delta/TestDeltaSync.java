@@ -156,10 +156,13 @@ public class TestDeltaSync {
     OneSnapshot snapshot1 = buildSnapshot(table1, dataFile1, dataFile2);
     OneSnapshot snapshot2 = buildSnapshot(table2, dataFile2, dataFile3);
 
-    TableFormatSync.getInstance().syncSnapshot(Collections.singletonList(deltaClient), snapshot1);
+    List<TableFormatSync.TableSyncClients> tableSyncClients =
+        Collections.singletonList(
+            new TableFormatSync.TableSyncClients(deltaClient, Collections.emptyList()));
+    TableFormatSync.getInstance().syncSnapshot(tableSyncClients, snapshot1);
     validateDeltaTable(basePath, new HashSet<>(Arrays.asList(dataFile1, dataFile2)), null);
 
-    TableFormatSync.getInstance().syncSnapshot(Collections.singletonList(deltaClient), snapshot2);
+    TableFormatSync.getInstance().syncSnapshot(tableSyncClients, snapshot2);
     validateDeltaTable(basePath, new HashSet<>(Arrays.asList(dataFile2, dataFile3)), null);
   }
 
@@ -204,7 +207,11 @@ public class TestDeltaSync {
 
     OneSnapshot snapshot1 = buildSnapshot(table, dataFile1, dataFile2, dataFile3);
 
-    TableFormatSync.getInstance().syncSnapshot(Collections.singletonList(deltaClient), snapshot1);
+    TableFormatSync.getInstance()
+        .syncSnapshot(
+            Collections.singletonList(
+                new TableFormatSync.TableSyncClients(deltaClient, Collections.emptyList())),
+            snapshot1);
     validateDeltaTable(basePath, new HashSet<>(Arrays.asList(dataFile3)), equalToExpr);
   }
 
@@ -278,7 +285,11 @@ public class TestDeltaSync {
     And CombinedExpr = new And(equalToExpr1, equalToExpr2);
 
     OneSnapshot snapshot1 = buildSnapshot(table, dataFile1, dataFile2, dataFile3);
-    TableFormatSync.getInstance().syncSnapshot(Collections.singletonList(deltaClient), snapshot1);
+    TableFormatSync.getInstance()
+        .syncSnapshot(
+            Collections.singletonList(
+                new TableFormatSync.TableSyncClients(deltaClient, Collections.emptyList())),
+            snapshot1);
     validateDeltaTable(basePath, new HashSet<>(Arrays.asList(dataFile2)), CombinedExpr);
   }
 
@@ -321,7 +332,11 @@ public class TestDeltaSync {
 
     OneSnapshot snapshot1 = buildSnapshot(table, dataFile1, dataFile2, dataFile3);
 
-    TableFormatSync.getInstance().syncSnapshot(Collections.singletonList(deltaClient), snapshot1);
+    TableFormatSync.getInstance()
+        .syncSnapshot(
+            Collections.singletonList(
+                new TableFormatSync.TableSyncClients(deltaClient, Collections.emptyList())),
+            snapshot1);
 
     Dataset<Row> dataset = sparkSession.read().format("delta").load(basePath.toString());
     org.apache.spark.sql.catalyst.expressions.Expression expression =

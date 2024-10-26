@@ -23,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -39,11 +40,13 @@ import org.apache.hadoop.conf.Configuration;
 
 import com.fasterxml.jackson.annotation.JsonMerge;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectReader;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.google.common.annotations.VisibleForTesting;
 
+import io.onetable.catalog.ExternalCatalogConfig;
 import io.onetable.client.OneTableClient;
 import io.onetable.client.PerTableConfig;
 import io.onetable.client.SourceClientProvider;
@@ -67,6 +70,7 @@ public class RunSync {
   private static final String HADOOP_CONFIG_PATH = "p";
   private static final String CLIENTS_CONFIG_PATH = "c";
   private static final String ICEBERG_CATALOG_CONFIG_PATH = "i";
+  private static final String EXTERNAL_CATALOG_CONFIG_PATH = "e";
   private static final String HELP_OPTION = "h";
 
   private static final Options OPTIONS =
@@ -94,6 +98,12 @@ public class RunSync {
               true,
               "The path to a yaml file containing Iceberg catalog configuration. The configuration will be "
                   + "used for any Iceberg source or target.")
+          .addOption(
+              EXTERNAL_CATALOG_CONFIG_PATH,
+              "externalCatalogConfig",
+              true,
+              "The path to a yaml file containing a list of external catalog configuration "
+                  + "where target table will be synced.")
           .addOption(HELP_OPTION, "help", false, "Displays help information to run this utility");
 
   public static void main(String[] args) throws IOException {
@@ -124,6 +134,9 @@ public class RunSync {
     Configuration hadoopConf = loadHadoopConf(customConfig);
     byte[] icebergCatalogConfigInput = getCustomConfigurations(cmd, ICEBERG_CATALOG_CONFIG_PATH);
     IcebergCatalogConfig icebergCatalogConfig = loadIcebergCatalogConfig(icebergCatalogConfigInput);
+    byte[] externalCatalogConfigInput = getCustomConfigurations(cmd, EXTERNAL_CATALOG_CONFIG_PATH);
+    List<ExternalCatalogConfig> externalCatalogConfigs =
+        loadExternalCatalogConfigs(externalCatalogConfigInput);
 
     String sourceFormat = datasetConfig.sourceFormat;
     customConfig = getCustomConfigurations(cmd, CLIENTS_CONFIG_PATH);
@@ -161,6 +174,7 @@ public class RunSync {
                         .partitionFieldSpecConfig(table.getPartitionSpec())
                         .build())
                 .targetTableFormats(tableFormatList)
+                .externalCatalogConfigs(externalCatalogConfigs)
                 .syncMode(SyncMode.INCREMENTAL)
                 .build();
         try {
@@ -215,6 +229,14 @@ public class RunSync {
     return customConfigs == null
         ? null
         : YAML_MAPPER.readValue(customConfigs, IcebergCatalogConfig.class);
+  }
+
+  @VisibleForTesting
+  static List<ExternalCatalogConfig> loadExternalCatalogConfigs(byte[] customConfigs)
+      throws IOException {
+    return customConfigs == null
+        ? Collections.emptyList()
+        : YAML_MAPPER.readValue(customConfigs, new TypeReference<List<ExternalCatalogConfig>>() {});
   }
 
   @Data

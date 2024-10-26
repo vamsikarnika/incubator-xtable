@@ -101,6 +101,13 @@
             <artifactId>log4j-1.2-api</artifactId>
         </dependency>
 
+        <!-- AWS Glue dependencies -->
+        <dependency>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>glue</artifactId>
+            <version>${aws.sdk.version}</version>
+        </dependency>
+
         <!-- Spark/Iceberg/Hudi dependencies for reading/writing tables -->
         <dependency>
             <groupId>org.apache.iceberg</groupId>
@@ -124,6 +131,18 @@
         <dependency>
             <groupId>org.mockito</groupId>
             <artifactId>mockito-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>${mockito.version}</version>
             <scope>test</scope>
         </dependency>
 

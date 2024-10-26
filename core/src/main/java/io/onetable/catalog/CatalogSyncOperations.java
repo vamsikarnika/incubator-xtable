@@ -16,30 +16,28 @@
  * limitations under the License.
  */
  
-package io.onetable.model.exception;
+package io.onetable.catalog;
 
-public enum OneTableErrorCode {
-  INVALID_CONFIGURATION(10001),
-  INVALID_PARTITION_SPEC(10002),
-  INVALID_PARTITION_VALUE(10003),
-  IO_EXCEPTION(10004),
-  INVALID_SCHEMA(10005),
-  UNSUPPORTED_SCHEMA_TYPE(10006),
-  UNSUPPORTED_FEATURE(10007),
-  PARSE_EXCEPTION(10008),
+import io.onetable.catalog.ExternalCatalogConfig.TableIdentifier;
+import io.onetable.exception.CatalogRefreshException;
+import io.onetable.model.OneTable;
 
-  CATALOG_REFRESH_EXCEPTION(10009),
+public interface CatalogSyncOperations<DATABASE, TABLE> {
 
-  CATALOG_SYNC_INVALID_PERMISSIONS_EXCEPTION(10010),
-  CATALOG_SYNC_UNKNOWN_EXCEPTION(10011);
+  String getTableFormat();
 
-  private final int errorCode;
+  DATABASE getDatabase(String databaseName);
 
-  OneTableErrorCode(int errorCode) {
-    this.errorCode = errorCode;
-  }
+  void createDatabase(String databaseName);
 
-  public int getErrorCode() {
-    return errorCode;
-  }
+  TABLE getTable(TableIdentifier tableIdentifier);
+
+  void createTable(OneTable table, TableIdentifier tableIdentifier);
+
+  void refreshTable(OneTable table, TABLE catalogTable, TableIdentifier tableIdentifier)
+      throws CatalogRefreshException;
+
+  void createOrReplaceTable(OneTable table, TableIdentifier tableIdentifier);
+
+  void dropTable(OneTable table, TableIdentifier tableIdentifier);
 }
