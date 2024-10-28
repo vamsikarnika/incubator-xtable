@@ -20,6 +20,10 @@ package io.onetable.catalog.glue;
 
 import static io.onetable.catalog.CatalogUtils.hasStorageDescriptorLocationChanged;
 
+import java.time.ZonedDateTime;
+import java.util.Collections;
+import java.util.List;
+
 import lombok.extern.log4j.Log4j2;
 
 import org.apache.commons.lang3.StringUtils;
@@ -29,7 +33,14 @@ import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.glue.GlueClient;
 import software.amazon.awssdk.services.glue.GlueClientBuilder;
+import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.Database;
+import software.amazon.awssdk.services.glue.model.DatabaseInput;
+import software.amazon.awssdk.services.glue.model.DeleteTableRequest;
+import software.amazon.awssdk.services.glue.model.EntityNotFoundException;
+import software.amazon.awssdk.services.glue.model.GetDatabaseRequest;
+import software.amazon.awssdk.services.glue.model.GetTableRequest;
+import software.amazon.awssdk.services.glue.model.GetTableResponse;
 import software.amazon.awssdk.services.glue.model.Table;
 
 import io.onetable.catalog.CatalogConfigFactory;
@@ -45,6 +56,11 @@ import io.onetable.spi.sync.CatalogSyncClient;
 public abstract class GlueCatalogSyncClient
     implements CatalogSyncOperations<Database, Table>, CatalogSyncClient {
   protected static final String GLUE_EXTERNAL_TABLE_TYPE = "EXTERNAL_TABLE";
+  protected static final String GLUE_TABLE_TYPE_PROP = "table_type";
+  // Error encountered during table refresh that require table re-creation
+  private static final List<String> RECREATE_TABLE_ERROR_MESSAGES = Collections.emptyList();
+  private static final String TEMP_SUFFIX = "_temp";
+
   protected final TableIdentifier tableIdentifier;
   protected final GlueClient glueClient;
   protected final GlueCatalogConfig glueCatalogConfig;
@@ -77,6 +93,85 @@ public abstract class GlueCatalogSyncClient
     this.glueClient = glueClient;
     this.glueCatalogConfig = glueCatalogConfig;
     this.configuration = configuration;
+  }
+
+  @Override
+  public Database getDatabase(String databaseName) {
+    try {
+      return glueClient
+          .getDatabase(
+              GetDatabaseRequest.builder()
+                  .catalogId(glueCatalogConfig.getCatalogId())
+                  .name(databaseName)
+                  .build())
+          .database();
+    } catch (EntityNotFoundException e) {
+      return null;
+    }
+  }
+
+  @Override
+  public void createDatabase(String databaseName) {
+    glueClient.createDatabase(
+        CreateDatabaseRequest.builder()
+            .catalogId(glueCatalogConfig.getCatalogId())
+            .databaseInput(
+                DatabaseInput.builder()
+                    .name(databaseName)
+                    .description("Automatically created by " + this.getClass().getName())
+                    .build())
+            .build());
+  }
+
+  @Override
+  public Table getTable(TableIdentifier tableIdentifier) {
+    try {
+      GetTableResponse response =
+          glueClient.getTable(
+              GetTableRequest.builder()
+                  .catalogId(glueCatalogConfig.getCatalogId())
+                  .databaseName(tableIdentifier.getDatabaseName())
+                  .name(tableIdentifier.getTableName())
+                  .build());
+      return response.table();
+    } catch (EntityNotFoundException e) {
+      return null;
+    }
+  }
+
+  @Override
+  public void createOrReplaceTable(OneTable table, TableIdentifier tableIdentifier) {
+    // validate before dropping the table
+    validateTempTableCreation(table, tableIdentifier);
+    dropTable(table, tableIdentifier);
+    createTable(table, tableIdentifier);
+  }
+
+  @Override
+  public void dropTable(OneTable table, TableIdentifier tableIdentifier) {
+    glueClient.deleteTable(
+        DeleteTableRequest.builder()
+            .catalogId(glueCatalogConfig.getCatalogId())
+            .databaseName(tableIdentifier.getDatabaseName())
+            .name(tableIdentifier.getTableName())
+            .build());
+  }
+
+  /**
+   * creates a temp table with new metadata and properties to ensure table creation succeeds before
+   * dropping the table and recreating it. This ensures that actual table is not dropped in case
+   * there are any issues
+   */
+  private void validateTempTableCreation(OneTable table, TableIdentifier tableIdentifier) {
+    String tempTableName =
+        tableIdentifier.getTableName() + TEMP_SUFFIX + ZonedDateTime.now().toEpochSecond();
+    TableIdentifier tempTableIdentifier =
+        TableIdentifier.builder()
+            .tableName(tempTableName)
+            .databaseName(tableIdentifier.getDatabaseName())
+            .build();
+    createTable(table, tempTableIdentifier);
+    dropTable(table, tempTableIdentifier);
   }
 
   @Override

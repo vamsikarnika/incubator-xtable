@@ -18,6 +18,8 @@
  
 package io.onetable.catalog;
 
+import static io.onetable.model.storage.TableFormat.ICEBERG;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -29,6 +31,7 @@ import lombok.NoArgsConstructor;
 import org.apache.hadoop.conf.Configuration;
 
 import io.onetable.catalog.glue.GlueCatalogSyncClient;
+import io.onetable.catalog.glue.IcebergGlueCatalogSyncClient;
 import io.onetable.spi.sync.CatalogSyncClient;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -63,6 +66,9 @@ public class CatalogClientFactory {
       String tableFormat,
       ExternalCatalogConfig externalCatalogConfig,
       Configuration configuration) {
+    if (tableFormat.equals(ICEBERG)) {
+      return new IcebergGlueCatalogSyncClient(externalCatalogConfig, configuration);
+    }
     throw new UnsupportedOperationException(
         "GlueCatalogSyncClient not supported for " + tableFormat);
   }
