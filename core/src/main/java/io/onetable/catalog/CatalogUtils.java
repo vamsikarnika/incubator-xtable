@@ -23,6 +23,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.fs.Path;
 
 public class CatalogUtils {
@@ -31,6 +32,10 @@ public class CatalogUtils {
 
   public static boolean hasStorageDescriptorLocationChanged(
       String storageDescriptorLocation, String tableBasePath) {
+
+    if (StringUtils.isEmpty(storageDescriptorLocation)) {
+      return true;
+    }
     URI storageDescriptorUri = new Path(storageDescriptorLocation).toUri();
     URI basePathUri = new Path(tableBasePath).toUri();
 

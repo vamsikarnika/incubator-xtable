@@ -22,9 +22,8 @@ import static io.onetable.catalog.CatalogUtils.hasStorageDescriptorLocationChang
 
 import lombok.extern.log4j.Log4j2;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-
-import org.apache.hudi.common.util.StringUtils;
 
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
 import software.amazon.awssdk.regions.Region;
@@ -56,10 +55,10 @@ public abstract class GlueCatalogSyncClient
     this.glueCatalogConfig =
         CatalogConfigFactory.getGlueCatalogConfig(externalCatalogConfig.getCatalogProperties());
     GlueClientBuilder builder = GlueClient.builder();
-    if (!StringUtils.isNullOrEmpty(glueCatalogConfig.getRegion())) {
+    if (!StringUtils.isEmpty(glueCatalogConfig.getRegion())) {
       builder.region(Region.of(glueCatalogConfig.getRegion()));
     }
-    if (!StringUtils.isNullOrEmpty(glueCatalogConfig.getClientCredentialsProviderClass())) {
+    if (!StringUtils.isEmpty(glueCatalogConfig.getClientCredentialsProviderClass())) {
       builder.credentialsProvider(DefaultCredentialsProvider.create());
     }
     // TODO: Convert CredentialsProviderClass to AWSCredentialsProvider
@@ -97,15 +96,25 @@ public abstract class GlueCatalogSyncClient
       //  1) glue table (manually) created with a different location before and need to be
       // re-created with a new basePath
       //  2) OneTable basePath changes due to migration or other reasons
+      String oldLocation =
+          glueTable.storageDescriptor() == null
+                  || StringUtils.isEmpty(glueTable.storageDescriptor().location())
+              ? "null"
+              : glueTable.storageDescriptor().location();
+      log.warn(
+          "StorageDescriptor location changed from {} to {}, re-creating table",
+          oldLocation,
+          table.getBasePath());
       createOrReplaceTable(table, tableIdentifier);
     } else {
       try {
+        log.debug("Table metadata changed, refreshing table");
         refreshTable(table, glueTable, tableIdentifier);
       } catch (CatalogRefreshException e) {
+        log.warn("Table refresh failed, re-creating table", e);
         createOrReplaceTable(table, tableIdentifier);
       }
     }
-    log.debug("Successfully synced {} to {} catalog", tableIdentifier, getCatalogType());
   }
 
   @Override
