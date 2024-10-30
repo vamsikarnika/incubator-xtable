@@ -104,3 +104,10 @@ eb29ab5 [ENG-12098] Add properties for the source client (#57)
 ---[2024-09-10 07:55:01] [release-v0.11.0] ---
 1306e3e [ENG-13995] Optionally pass in meta client to HudiSourceClientProvider (#59)
 27e66be Upgrade to version release-v0.10.0 (#58)
+
+---[2024-10-30 11:54:01] [release-v0.12.0] ---
+979cb73 [ENG-15509][Glue Catalog Sync] Iceberg glue sync client implementation (#71)
+ab12f79 [ENG-15509] [Glue Catalog Sync] Glue catalog schema extractor implementation (#70)
+c88c658 [ENG-15509] Add interfaces and models for CatalogSync across table formats (#69)
+373dfa8 upgrading path-to-regexp version (#62)
+27524d4 Upgrade to version release-v0.11.0 (#60)
