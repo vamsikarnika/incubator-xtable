@@ -18,8 +18,11 @@
  
 package io.onetable.catalog.glue;
 
+import java.util.Map;
+
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.ToString;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -29,6 +32,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @ToString
 public class GlueCatalogConfig {
 
+  public static final String CLIENT_CREDENTIAL_PROVIDER_PREFIX =
+      "externalCatalog.glue.credentials.provider.";
+
   @JsonProperty("externalCatalog.glue.catalogId")
   private String catalogId;
 
@@ -37,6 +43,8 @@ public class GlueCatalogConfig {
 
   @JsonProperty("externalCatalog.glue.credentialsProviderClass")
   private String clientCredentialsProviderClass;
+
+  @Setter private Map<String, String> clientCredentialConfigs;
 
   @JsonProperty("externalCatalog.glue.lakeFormationEnabled")
   // TODO: Add lake formation support for Iceberg<>Glue sync

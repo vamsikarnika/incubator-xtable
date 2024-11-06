@@ -29,10 +29,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.glue.GlueClient;
-import software.amazon.awssdk.services.glue.GlueClientBuilder;
 import software.amazon.awssdk.services.glue.model.CreateDatabaseRequest;
 import software.amazon.awssdk.services.glue.model.Database;
 import software.amazon.awssdk.services.glue.model.DatabaseInput;
@@ -70,16 +67,7 @@ public abstract class GlueCatalogSyncClient
       ExternalCatalogConfig externalCatalogConfig, Configuration configuration) {
     this.glueCatalogConfig =
         CatalogConfigFactory.getGlueCatalogConfig(externalCatalogConfig.getCatalogProperties());
-    GlueClientBuilder builder = GlueClient.builder();
-    if (!StringUtils.isEmpty(glueCatalogConfig.getRegion())) {
-      builder.region(Region.of(glueCatalogConfig.getRegion()));
-    }
-    if (!StringUtils.isEmpty(glueCatalogConfig.getClientCredentialsProviderClass())) {
-      builder.credentialsProvider(DefaultCredentialsProvider.create());
-    }
-    // TODO: Convert CredentialsProviderClass to AWSCredentialsProvider
-    // [https://app.clickup.com/t/18029943/ENG-16065]
-    this.glueClient = builder.build();
+    this.glueClient = new DefaultGlueClientFactory(glueCatalogConfig).getGlueClient();
     this.tableIdentifier = externalCatalogConfig.getTableFormatsToSync().get(getTableFormat());
     this.configuration = configuration;
   }

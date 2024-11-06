@@ -19,6 +19,8 @@
 package io.onetable.reflection;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 
 import io.onetable.exception.ConfigurationException;
@@ -51,6 +53,34 @@ public class ReflectionUtils {
         | InvocationTargetException e) {
       throw new ConfigurationException("Unable to load class: " + className);
     }
+  }
+
+  public static <T> T createInstanceOfClassFromMethod(
+      String className, String methodName, Class<?>[] argClasses, Object[] args) {
+    try {
+      // Load the specified class
+      Class<?> clazz = (Class<T>) ReflectionUtils.class.getClassLoader().loadClass(className);
+
+      // Retrieve and make the specified method accessible
+      Method method = clazz.getDeclaredMethod(methodName, argClasses);
+      method.setAccessible(true);
+
+      // Invoke the method if it's static; throw an error otherwise
+      if (Modifier.isStatic(method.getModifiers())) {
+        return (T) method.invoke(null, args);
+      } else {
+        throw new IllegalArgumentException("The specified method is not static: " + methodName);
+      }
+    } catch (ClassNotFoundException ex) {
+      throw new ConfigurationException("Unable to load class: " + className);
+    } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException ex) {
+      throw new ConfigurationException(
+          String.format("Failed to invoke method '%s' in class '%s'", methodName, className));
+    }
+  }
+
+  public static <T> T createInstanceOfClassFromMethod(String className, String methodName) {
+    return createInstanceOfClassFromMethod(className, methodName, new Class<?>[] {}, null);
   }
 
   private static boolean hasConstructor(Class<?> clazz, Class<?>... constructorArgTypes) {

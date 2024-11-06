@@ -18,9 +18,14 @@
  
 package io.onetable.catalog;
 
+import static io.onetable.catalog.glue.GlueCatalogConfig.CLIENT_CREDENTIAL_PROVIDER_PREFIX;
+
+import java.util.Collections;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.onetable.catalog.glue.GlueCatalogConfig;
@@ -30,14 +35,32 @@ import io.onetable.catalog.glue.GlueCatalogConfig;
  * for each catalog. Each config follows the format of externalCatalog.catalogType.propertyName
  */
 public class CatalogConfigFactory {
-  private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+  private static final ObjectMapper OBJECT_MAPPER =
+      new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+  ;
 
   public static GlueCatalogConfig getGlueCatalogConfig(Map<String, String> properties) {
     try {
-      return OBJECT_MAPPER.readValue(
-          OBJECT_MAPPER.writeValueAsString(properties), GlueCatalogConfig.class);
+      GlueCatalogConfig glueCatalogConfig =
+          OBJECT_MAPPER.readValue(
+              OBJECT_MAPPER.writeValueAsString(properties), GlueCatalogConfig.class);
+      Map<String, String> clientCredentialProperties =
+          propertiesWithPrefix(properties, CLIENT_CREDENTIAL_PROVIDER_PREFIX);
+      glueCatalogConfig.setClientCredentialConfigs(clientCredentialProperties);
+      return glueCatalogConfig;
     } catch (JsonProcessingException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  private static Map<String, String> propertiesWithPrefix(
+      Map<String, String> properties, String prefix) {
+    if (properties == null || properties.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    return properties.entrySet().stream()
+        .filter(e -> e.getKey().startsWith(prefix))
+        .collect(Collectors.toMap(e -> e.getKey().replaceFirst(prefix, ""), Map.Entry::getValue));
   }
 }
