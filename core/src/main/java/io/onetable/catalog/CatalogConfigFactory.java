@@ -29,6 +29,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import io.onetable.catalog.glue.GlueCatalogConfig;
+import io.onetable.catalog.hms.HMSCatalogConfig;
 
 /**
  * CatalogConfigFactory defines the configs specific to each catalog and returns the configuration
@@ -62,5 +63,14 @@ public class CatalogConfigFactory {
     return properties.entrySet().stream()
         .filter(e -> e.getKey().startsWith(prefix))
         .collect(Collectors.toMap(e -> e.getKey().replaceFirst(prefix, ""), Map.Entry::getValue));
+  }
+
+  public static HMSCatalogConfig getHMSCatalogConfig(Map<String, String> properties) {
+    try {
+      return OBJECT_MAPPER.readValue(
+          OBJECT_MAPPER.writeValueAsString(properties), HMSCatalogConfig.class);
+    } catch (JsonProcessingException e) {
+      throw new RuntimeException(e);
+    }
   }
 }

@@ -16,9 +16,8 @@
  * limitations under the License.
  */
  
-package io.onetable.catalog.glue;
+package io.onetable.catalog.hms;
 
-import static io.onetable.catalog.glue.GlueSchemaExtractor.getColumnProperty;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -28,14 +27,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.junit.jupiter.api.Test;
-
-import software.amazon.awssdk.services.glue.model.Column;
-import software.amazon.awssdk.services.glue.model.StorageDescriptor;
-import software.amazon.awssdk.services.glue.model.Table;
-
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 
 import io.onetable.catalog.TestSchemaExtractorBase;
 import io.onetable.exception.NotSupportedException;
@@ -44,32 +37,14 @@ import io.onetable.model.schema.OneSchema;
 import io.onetable.model.schema.OneType;
 import io.onetable.model.storage.TableFormat;
 
-public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
+public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
 
-  private Column getCurrentGlueTableColumn(
-      String tableFormat, String colName, String colType, Integer fieldId, boolean isNullable) {
-    fieldId = fieldId != null ? fieldId : -1;
-    return Column.builder()
-        .name(colName)
-        .type(colType)
-        .parameters(
-            ImmutableMap.of(
-                getColumnProperty(tableFormat, "field.id"), Integer.toString(fieldId),
-                getColumnProperty(tableFormat, "field.optional"), Boolean.toString(isNullable),
-                getColumnProperty(tableFormat, "field.current"), "true"))
-        .build();
-  }
-
-  private Column getPreviousGlueTableColumn(String tableFormat, String colName, String colType) {
-    return Column.builder()
-        .name(colName)
-        .type(colType)
-        .parameters(ImmutableMap.of(getColumnProperty(tableFormat, "field.current"), "false"))
-        .build();
+  private FieldSchema getFieldSchema(String name, String type) {
+    return new FieldSchema(name, type, null);
   }
 
   @Test
-  void testPrimitiveTypes_NoExistingTable() {
+  void testPrimitiveTypes() {
     int precision = 10;
     int scale = 5;
     Map<OneSchema.MetadataKey, Object> doubleMetadata = new HashMap<>();
@@ -101,31 +76,26 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                         "requiredTimestampNTZ", "timestamp_ntz", OneType.TIMESTAMP_NTZ, false, 12)))
             .build();
 
-    List<Column> expectedGlueColumns =
+    List<FieldSchema> expected =
         Arrays.asList(
-            getCurrentGlueTableColumn(tableFormat, "requiredBoolean", "boolean", 1, false),
-            getCurrentGlueTableColumn(tableFormat, "optionalBoolean", "boolean", 2, true),
-            getCurrentGlueTableColumn(tableFormat, "requiredInt", "int", 3, false),
-            getCurrentGlueTableColumn(tableFormat, "requiredLong", "bigint", 4, false),
-            getCurrentGlueTableColumn(tableFormat, "requiredDouble", "double", 5, false),
-            getCurrentGlueTableColumn(tableFormat, "requiredFloat", "float", 6, false),
-            getCurrentGlueTableColumn(tableFormat, "requiredString", "string", 7, false),
-            getCurrentGlueTableColumn(tableFormat, "requiredBytes", "binary", 8, false),
-            getCurrentGlueTableColumn(tableFormat, "requiredDate", "date", 9, false),
-            getCurrentGlueTableColumn(
-                tableFormat,
-                "requiredDecimal",
-                String.format("decimal(%s,%s)", precision, scale),
-                10,
-                false),
-            getCurrentGlueTableColumn(tableFormat, "requiredTimestamp", "timestamp", 11, false),
-            getCurrentGlueTableColumn(tableFormat, "requiredTimestampNTZ", "timestamp", 12, false));
+            getFieldSchema("requiredBoolean", "boolean"),
+            getFieldSchema("optionalBoolean", "boolean"),
+            getFieldSchema("requiredInt", "int"),
+            getFieldSchema("requiredLong", "bigint"),
+            getFieldSchema("requiredDouble", "double"),
+            getFieldSchema("requiredFloat", "float"),
+            getFieldSchema("requiredString", "string"),
+            getFieldSchema("requiredBytes", "binary"),
+            getFieldSchema("requiredDate", "date"),
+            getFieldSchema("requiredDecimal", String.format("decimal(%s,%s)", precision, scale)),
+            getFieldSchema("requiredTimestamp", "timestamp"),
+            getFieldSchema("requiredTimestampNTZ", "timestamp"));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
   }
 
   @Test
-  void testTimestamps_NoExistingTable() {
+  void testTimestamps() {
     String tableFormat = TableFormat.ICEBERG;
     Map<OneSchema.MetadataKey, Object> millisTimestamp =
         Collections.singletonMap(
@@ -172,22 +142,18 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                         microsTimestamp)))
             .build();
 
-    List<Column> expectedGlueColumns =
+    List<FieldSchema> expected =
         Arrays.asList(
-            getCurrentGlueTableColumn(
-                tableFormat, "requiredTimestampMillis", "timestamp", 1, false),
-            getCurrentGlueTableColumn(
-                tableFormat, "requiredTimestampMicros", "timestamp", 2, false),
-            getCurrentGlueTableColumn(
-                tableFormat, "requiredTimestampNTZMillis", "timestamp", 3, false),
-            getCurrentGlueTableColumn(
-                tableFormat, "requiredTimestampNTZMicros", "timestamp", 4, false));
+            getFieldSchema("requiredTimestampMillis", "timestamp"),
+            getFieldSchema("requiredTimestampMicros", "timestamp"),
+            getFieldSchema("requiredTimestampNTZMillis", "timestamp"),
+            getFieldSchema("requiredTimestampNTZMicros", "timestamp"));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
   }
 
   @Test
-  void testMaps_NoExistingTable() {
+  void testMaps() {
     String tableFormat = TableFormat.ICEBERG;
     OneSchema recordMapElementSchema =
         OneSchema.builder()
@@ -273,21 +239,17 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                         .build()))
             .build();
 
-    List<Column> expectedGlueColumns =
+    List<FieldSchema> expected =
         Arrays.asList(
-            getCurrentGlueTableColumn(tableFormat, "intMap", "map<string,int>", 1, false),
-            getCurrentGlueTableColumn(
-                tableFormat,
-                "recordMap",
-                "map<int,struct<requiredDouble:double,optionalString:string>>",
-                2,
-                true));
+            getFieldSchema("intMap", "map<string,int>"),
+            getFieldSchema(
+                "recordMap", "map<int,struct<requiredDouble:double,optionalString:string>>"));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
   }
 
   @Test
-  void testLists_NoExistingTable() {
+  void testLists() {
     String tableFormat = TableFormat.ICEBERG;
     OneSchema recordListElementSchema =
         OneSchema.builder()
@@ -359,21 +321,17 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                         .build()))
             .build();
 
-    List<Column> expectedGlueColumns =
+    List<FieldSchema> expected =
         Arrays.asList(
-            getCurrentGlueTableColumn(tableFormat, "intList", "array<int>", 1, false),
-            getCurrentGlueTableColumn(
-                tableFormat,
-                "recordList",
-                "array<struct<requiredDouble:double,optionalString:string>>",
-                2,
-                true));
+            getFieldSchema("intList", "array<int>"),
+            getFieldSchema(
+                "recordList", "array<struct<requiredDouble:double,optionalString:string>>"));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
   }
 
   @Test
-  void testNestedRecords_NoExistingTable() {
+  void testNestedRecords() {
     String tableFormat = TableFormat.ICEBERG;
     OneSchema oneSchema =
         OneSchema.builder()
@@ -431,85 +389,12 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                         .build()))
             .build();
 
-    List<Column> expectedGlueColumns =
+    List<FieldSchema> expected =
         Arrays.asList(
-            getCurrentGlueTableColumn(
-                tableFormat,
+            getFieldSchema(
                 "nestedOne",
-                "struct<nestedOptionalInt:int,nestedRequiredDouble:double,nestedTwo:struct<doublyNestedString:string>>",
-                1,
-                true));
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
-  }
-
-  @Test
-  void testToColumns_NoColumnsFromExistingTable() {
-    String tableFormat = TableFormat.ICEBERG;
-    OneSchema oneSchema =
-        OneSchema.builder()
-            .dataType(OneType.RECORD)
-            .isNullable(false)
-            .name("record")
-            .fields(
-                Arrays.asList(
-                    getPrimitiveOneField("optionalBoolean", "boolean", OneType.BOOLEAN, true, 2),
-                    getPrimitiveOneField("requiredInt", "integer", OneType.INT, false, 3)))
-            .build();
-
-    List<Table> tableList =
-        Arrays.asList(
-            // table is null
-            null,
-            // storageDescriptor is null
-            Table.builder().build(),
-            // no columns present
-            Table.builder().storageDescriptor(StorageDescriptor.builder().build()).build());
-
-    List<Column> expectedGlueColumns =
-        Arrays.asList(
-            getCurrentGlueTableColumn(tableFormat, "optionalBoolean", "boolean", 2, true),
-            getCurrentGlueTableColumn(tableFormat, "requiredInt", "int", 3, false));
-
-    for (Table table : tableList) {
-      assertEquals(
-          expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema, table));
-    }
-  }
-
-  @Test
-  void testToColumns_ValidExistingTable() {
-    String tableFormat = TableFormat.ICEBERG;
-    OneSchema oneSchema =
-        OneSchema.builder()
-            .dataType(OneType.RECORD)
-            .isNullable(false)
-            .name("record")
-            .fields(
-                Arrays.asList(
-                    getPrimitiveOneField("optionalBoolean", "boolean", OneType.BOOLEAN, true, 2),
-                    getPrimitiveOneField("requiredInt", "integer", OneType.INT, false, 3)))
-            .build();
-
-    Table existingTable =
-        Table.builder()
-            .storageDescriptor(
-                StorageDescriptor.builder()
-                    .columns(
-                        ImmutableList.of(
-                            Column.builder().name("prev_x").type("string").build(),
-                            Column.builder().name("prev_y").type("string").build()))
-                    .build())
-            .build();
-
-    List<Column> expectedGlueColumns =
-        Arrays.asList(
-            getCurrentGlueTableColumn(tableFormat, "optionalBoolean", "boolean", 2, true),
-            getCurrentGlueTableColumn(tableFormat, "requiredInt", "int", 3, false),
-            getPreviousGlueTableColumn(tableFormat, "prev_x", "string"),
-            getPreviousGlueTableColumn(tableFormat, "prev_y", "string"));
-
-    assertEquals(
-        expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema, existingTable));
+                "struct<nestedOptionalInt:int,nestedRequiredDouble:double,nestedTwo:struct<doublyNestedString:string>>"));
+    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -539,7 +424,7 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
     NotSupportedException exception =
         assertThrows(
             NotSupportedException.class,
-            () -> GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+            () -> HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
     assertEquals("Unsupported type: OneType.UNION(name=union)", exception.getMessage());
 
     // Invalid decimal type (precision and scale metadata is missing)
@@ -557,7 +442,7 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
     exception =
         assertThrows(
             NotSupportedException.class,
-            () -> GlueSchemaExtractor.toColumns(tableFormat, oneSchema2));
+            () -> HMSSchemaExtractor.toColumns(tableFormat, oneSchema2));
     assertEquals("Invalid decimal type, precision and scale is missing", exception.getMessage());
 
     // Invalid decimal type (scale metadata is missing)
@@ -578,7 +463,7 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
     exception =
         assertThrows(
             NotSupportedException.class,
-            () -> GlueSchemaExtractor.toColumns(tableFormat, oneSchema3));
+            () -> HMSSchemaExtractor.toColumns(tableFormat, oneSchema3));
     assertEquals("Invalid decimal type, scale is missing", exception.getMessage());
   }
 }

@@ -33,12 +33,15 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 import io.onetable.catalog.glue.GlueCatalogConfig;
+import io.onetable.catalog.hms.HMSCatalogConfig;
 
 public class TestCatalogConfigFactory {
   private static final String GLUE_CATALOG_ID_KEY = "externalCatalog.glue.catalogId";
   private static final String GLUE_CATALOG_ID_VALUE = "aws-accountId";
   private static final String GLUE_CATALOG_REGION_KEY = "externalCatalog.glue.region";
   private static final String GLUE_CATALOG_REGION_VALUE = "aws-region";
+  private static final String HMS_CATALOG_SERVER_URL_KEY = "externalCatalog.hms.serverUrl";
+  private static final String HMS_CATALOG_SERVER_URL_VALUE = "thrift://localhost:9083";
   private static final String GLUE_CATALOG_CREDENTIAL_PROVIDER_KEY =
       "externalCatalog.glue.credentialsProviderClass";
   private static final String GLUE_CATALOG_CREDENTIAL_PROVIDER_VALUE =
@@ -115,5 +118,27 @@ public class TestCatalogConfigFactory {
       props.put(keyValues[i], keyValues[i + 1]);
     }
     return props;
+  }
+
+  @Test
+  void testGetHmsCatalogConfig_withNoPropertiesSet() {
+    Map<String, String> props = new HashMap<>();
+    HMSCatalogConfig catalogConfig = CatalogConfigFactory.getHMSCatalogConfig(props);
+    assertNull(catalogConfig.getServerUrl());
+  }
+
+  @Test
+  void testGetHmsCatalogConfig_withUnknownProperty() {
+    Map<String, String> props =
+        createProps("externalCatalog.glue.unknownProperty", "unknown-property-value");
+    assertDoesNotThrow(() -> CatalogConfigFactory.getHMSCatalogConfig(props));
+  }
+
+  @Test
+  void testGetHmsCatalogConfig() {
+    Map<String, String> props =
+        createProps(HMS_CATALOG_SERVER_URL_KEY, HMS_CATALOG_SERVER_URL_VALUE);
+    HMSCatalogConfig catalogConfig = CatalogConfigFactory.getHMSCatalogConfig(props);
+    assertEquals(HMS_CATALOG_SERVER_URL_VALUE, catalogConfig.getServerUrl());
   }
 }

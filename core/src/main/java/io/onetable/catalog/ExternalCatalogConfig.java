@@ -72,5 +72,9 @@ public class ExternalCatalogConfig {
      * from the table name in storage.
      */
     @NonNull String tableName;
+
+    public String getId() {
+      return String.format("%s-%s", databaseName, tableName);
+    }
   }
 }
