@@ -22,6 +22,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
 import io.onetable.exception.NotSupportedException;
@@ -29,7 +32,14 @@ import io.onetable.exception.SchemaExtractorException;
 import io.onetable.model.schema.OneField;
 import io.onetable.model.schema.OneSchema;
 
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class HMSSchemaExtractor {
+
+  private static final HMSSchemaExtractor INSTANCE = new HMSSchemaExtractor();
+
+  public static HMSSchemaExtractor getInstance() {
+    return INSTANCE;
+  }
 
   /**
    * Extract HMS schema from OneTable schema
@@ -38,7 +48,7 @@ public class HMSSchemaExtractor {
    * @param tableSchema OneTable schema
    * @return HMS Field schema list
    */
-  static List<FieldSchema> toColumns(String tableFormat, OneSchema tableSchema) {
+  List<FieldSchema> toColumns(String tableFormat, OneSchema tableSchema) {
     return tableSchema.getFields().stream()
         .map(
             field ->
@@ -49,7 +59,7 @@ public class HMSSchemaExtractor {
         .collect(Collectors.toList());
   }
 
-  private static String convertToTypeString(OneSchema fieldSchema) {
+  private String convertToTypeString(OneSchema fieldSchema) {
     switch (fieldSchema.getDataType()) {
       case BOOLEAN:
         return "boolean";

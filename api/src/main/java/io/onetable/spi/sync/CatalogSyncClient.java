@@ -21,7 +21,7 @@ package io.onetable.spi.sync;
 import io.onetable.model.OneTable;
 import io.onetable.model.catalog.CatalogType;
 
-public interface CatalogSyncClient {
+public interface CatalogSyncClient extends AutoCloseable {
 
   void syncTable(OneTable table);
 

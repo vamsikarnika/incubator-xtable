@@ -22,7 +22,7 @@ import io.onetable.catalog.ExternalCatalogConfig.TableIdentifier;
 import io.onetable.exception.CatalogRefreshException;
 import io.onetable.model.OneTable;
 
-public interface CatalogSyncOperations<DATABASE, TABLE> {
+public interface CatalogSyncOperations<DATABASE, TABLE> extends AutoCloseable {
 
   String getTableFormat();
 

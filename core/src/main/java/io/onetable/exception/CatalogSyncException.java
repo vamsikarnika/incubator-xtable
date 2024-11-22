@@ -31,4 +31,8 @@ public class CatalogSyncException extends OneTableException {
   public CatalogSyncException(OneTableErrorCode errorCode, String message, Throwable e) {
     super(errorCode, message, e);
   }
+
+  public CatalogSyncException(String message, Throwable e) {
+    super(OneTableErrorCode.CATALOG_SYNC_GENERIC_EXCEPTION, message, e);
+  }
 }

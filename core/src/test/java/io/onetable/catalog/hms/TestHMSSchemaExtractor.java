@@ -91,7 +91,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
             getFieldSchema("requiredTimestamp", "timestamp"),
             getFieldSchema("requiredTimestampNTZ", "timestamp"));
 
-    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -149,7 +149,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
             getFieldSchema("requiredTimestampNTZMillis", "timestamp"),
             getFieldSchema("requiredTimestampNTZMicros", "timestamp"));
 
-    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -245,7 +245,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
             getFieldSchema(
                 "recordMap", "map<int,struct<requiredDouble:double,optionalString:string>>"));
 
-    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -327,7 +327,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
             getFieldSchema(
                 "recordList", "array<struct<requiredDouble:double,optionalString:string>>"));
 
-    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -394,7 +394,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
             getFieldSchema(
                 "nestedOne",
                 "struct<nestedOptionalInt:int,nestedRequiredDouble:double,nestedTwo:struct<doublyNestedString:string>>"));
-    assertEquals(expected, HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(expected, HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -424,7 +424,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
     NotSupportedException exception =
         assertThrows(
             NotSupportedException.class,
-            () -> HMSSchemaExtractor.toColumns(tableFormat, oneSchema));
+            () -> HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
     assertEquals("Unsupported type: OneType.UNION(name=union)", exception.getMessage());
 
     // Invalid decimal type (precision and scale metadata is missing)
@@ -442,7 +442,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
     exception =
         assertThrows(
             NotSupportedException.class,
-            () -> HMSSchemaExtractor.toColumns(tableFormat, oneSchema2));
+            () -> HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema2));
     assertEquals("Invalid decimal type, precision and scale is missing", exception.getMessage());
 
     // Invalid decimal type (scale metadata is missing)
@@ -463,7 +463,7 @@ public class TestHMSSchemaExtractor extends TestSchemaExtractorBase {
     exception =
         assertThrows(
             NotSupportedException.class,
-            () -> HMSSchemaExtractor.toColumns(tableFormat, oneSchema3));
+            () -> HMSSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema3));
     assertEquals("Invalid decimal type, scale is missing", exception.getMessage());
   }
 }

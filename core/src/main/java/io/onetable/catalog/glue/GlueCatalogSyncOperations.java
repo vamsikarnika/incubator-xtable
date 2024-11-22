@@ -170,4 +170,11 @@ public abstract class GlueCatalogSyncOperations implements CatalogSyncOperations
     }
     return table.storageDescriptor().location();
   }
+
+  @Override
+  public void close() {
+    if (this.glueClient != null) {
+      this.glueClient.close();
+    }
+  }
 }

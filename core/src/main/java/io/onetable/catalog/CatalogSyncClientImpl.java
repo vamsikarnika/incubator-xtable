@@ -86,4 +86,9 @@ public class CatalogSyncClientImpl<Database, Table> implements CatalogSyncClient
   public CatalogType getCatalogType() {
     return catalogType;
   }
+
+  @Override
+  public void close() throws Exception {
+    operations.close();
+  }
 }

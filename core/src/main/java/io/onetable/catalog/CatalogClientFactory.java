@@ -29,9 +29,13 @@ import lombok.AccessLevel;
 import lombok.NoArgsConstructor;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.hive.metastore.api.Database;
+import org.apache.hadoop.hive.metastore.api.Table;
 
 import io.onetable.catalog.glue.IcebergGlueCatalogSyncOperations;
+import io.onetable.catalog.hms.IcebergHMSCatalogSyncOperations;
 import io.onetable.model.catalog.CatalogType;
+import io.onetable.model.storage.TableFormat;
 import io.onetable.spi.sync.CatalogSyncClient;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -47,6 +51,7 @@ public class CatalogClientFactory {
       ExternalCatalogConfig externalCatalogConfig,
       Configuration configuration) {
     List<CatalogSyncClient> catalogSyncClients = new ArrayList<>();
+
     switch (externalCatalogConfig.getCatalogType()) {
       case GLUE:
         catalogSyncClients.addAll(
@@ -57,6 +62,11 @@ public class CatalogClientFactory {
                 .collect(Collectors.toList()));
         return catalogSyncClients;
       case HMS:
+        catalogSyncClients.addAll(
+            externalCatalogConfig.getTableFormatsToSync().keySet().stream()
+                .filter(format -> format.equals(tableFormat))
+                .map(format -> createHMSSyncClient(format, externalCatalogConfig, configuration))
+                .collect(Collectors.toList()));
       default:
         return catalogSyncClients;
     }
@@ -76,5 +86,18 @@ public class CatalogClientFactory {
     }
     throw new UnsupportedOperationException(
         "GlueCatalogSyncClient not supported for " + tableFormat);
+  }
+
+  private CatalogSyncClient createHMSSyncClient(
+      String tableFormat,
+      ExternalCatalogConfig externalCatalogConfig,
+      Configuration configuration) {
+    if (tableFormat.equals(TableFormat.ICEBERG)) {
+      CatalogSyncOperations<Database, Table> catalogSyncOperations =
+          new IcebergHMSCatalogSyncOperations(externalCatalogConfig, configuration);
+      return new CatalogSyncClientImpl<>(catalogSyncOperations, CatalogType.HMS);
+    }
+    throw new UnsupportedOperationException(
+        "HMSCatalogSyncClient not supported for " + tableFormat);
   }
 }
