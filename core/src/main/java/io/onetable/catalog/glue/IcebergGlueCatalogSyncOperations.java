@@ -18,6 +18,10 @@
  
 package io.onetable.catalog.glue;
 
+import static org.apache.iceberg.BaseMetastoreTableOperations.METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.PREVIOUS_METADATA_LOCATION_PROP;
+import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -46,26 +50,25 @@ import io.onetable.model.storage.TableFormat;
 
 /** Glue catalog sync implementation for Iceberg table */
 @Log4j2
-public class IcebergGlueCatalogSyncClient extends GlueCatalogSyncClient {
-  protected static final String GLUE_ICEBERG_METADATA_LOCATION_PROP = "metadata_location";
-  protected static final String GLUE_ICEBERG_PREV_METADATA_LOCATION_PROP =
-      "previous_metadata_location";
+public class IcebergGlueCatalogSyncOperations extends GlueCatalogSyncOperations {
+
   private final HadoopTables hadoopTables;
 
-  public IcebergGlueCatalogSyncClient(
+  public IcebergGlueCatalogSyncOperations(
       ExternalCatalogConfig externalCatalogConfig, Configuration configuration) {
     super(externalCatalogConfig, configuration);
     this.hadoopTables = new HadoopTables(configuration);
   }
 
   @VisibleForTesting
-  IcebergGlueCatalogSyncClient(
+  IcebergGlueCatalogSyncOperations(
       TableIdentifier tableIdentifier,
       GlueClient glueClient,
       GlueCatalogConfig glueCatalogConfig,
       Configuration configuration,
-      HadoopTables hadoopTables) {
-    super(tableIdentifier, glueClient, glueCatalogConfig, configuration);
+      HadoopTables hadoopTables,
+      GlueSchemaExtractor schemaExtractor) {
+    super(tableIdentifier, glueClient, glueCatalogConfig, configuration, schemaExtractor);
     this.hadoopTables = hadoopTables;
   }
 
@@ -90,8 +93,7 @@ public class IcebergGlueCatalogSyncClient extends GlueCatalogSyncClient {
                         StorageDescriptor.builder()
                             .location(table.getBasePath())
                             .columns(
-                                GlueSchemaExtractor.toColumns(
-                                    getTableFormat(), table.getReadSchema()))
+                                schemaExtractor.toColumns(getTableFormat(), table.getReadSchema()))
                             .build())
                     .build())
             .build());
@@ -101,9 +103,7 @@ public class IcebergGlueCatalogSyncClient extends GlueCatalogSyncClient {
   public void refreshTable(OneTable table, Table glueTable, TableIdentifier tableIdentifier) {
     BaseTable fsTable = loadTableFromFs(table.getBasePath());
     Map<String, String> parameters = new HashMap<>(glueTable.parameters());
-    parameters.put(
-        GLUE_ICEBERG_PREV_METADATA_LOCATION_PROP,
-        parameters.get(GLUE_ICEBERG_METADATA_LOCATION_PROP));
+    parameters.put(PREVIOUS_METADATA_LOCATION_PROP, parameters.get(METADATA_LOCATION_PROP));
     parameters.putAll(getTableParameters(fsTable));
     try {
       glueClient.updateTable(
@@ -120,22 +120,22 @@ public class IcebergGlueCatalogSyncClient extends GlueCatalogSyncClient {
                           StorageDescriptor.builder()
                               .location(table.getBasePath())
                               .columns(
-                                  GlueSchemaExtractor.toColumns(
+                                  schemaExtractor.toColumns(
                                       getTableFormat(), table.getReadSchema(), glueTable))
                               .build())
                       .build())
               .build());
     } catch (Exception e) {
       throw new CatalogSyncException(
-          OneTableErrorCode.CATALOG_SYNC_UNKNOWN_EXCEPTION, "Failed to refresh iceberg table", e);
+          OneTableErrorCode.CATALOG_SYNC_GENERIC_EXCEPTION, "Failed to refresh iceberg table", e);
     }
   }
 
   @VisibleForTesting
   Map<String, String> getTableParameters(BaseTable table) {
     Map<String, String> parameters = new HashMap<>();
-    parameters.put(GLUE_TABLE_TYPE_PROP, getTableFormat());
-    parameters.put(GLUE_ICEBERG_METADATA_LOCATION_PROP, getMetadataFileLocation(table));
+    parameters.put(TABLE_TYPE_PROP, getTableFormat());
+    parameters.put(METADATA_LOCATION_PROP, getMetadataFileLocation(table));
     return parameters;
   }
 

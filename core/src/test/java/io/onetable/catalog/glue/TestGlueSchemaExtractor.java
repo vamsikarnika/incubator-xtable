@@ -121,7 +121,8 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
             getCurrentGlueTableColumn(tableFormat, "requiredTimestamp", "timestamp", 11, false),
             getCurrentGlueTableColumn(tableFormat, "requiredTimestampNTZ", "timestamp", 12, false));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(
+        expectedGlueColumns, GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -183,7 +184,8 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
             getCurrentGlueTableColumn(
                 tableFormat, "requiredTimestampNTZMicros", "timestamp", 4, false));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(
+        expectedGlueColumns, GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -283,7 +285,8 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                 2,
                 true));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(
+        expectedGlueColumns, GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -369,7 +372,8 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                 2,
                 true));
 
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(
+        expectedGlueColumns, GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -439,7 +443,8 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
                 "struct<nestedOptionalInt:int,nestedRequiredDouble:double,nestedTwo:struct<doublyNestedString:string>>",
                 1,
                 true));
-    assertEquals(expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+    assertEquals(
+        expectedGlueColumns, GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
   }
 
   @Test
@@ -472,7 +477,8 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
 
     for (Table table : tableList) {
       assertEquals(
-          expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema, table));
+          expectedGlueColumns,
+          GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema, table));
     }
   }
 
@@ -509,7 +515,8 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
             getPreviousGlueTableColumn(tableFormat, "prev_y", "string"));
 
     assertEquals(
-        expectedGlueColumns, GlueSchemaExtractor.toColumns(tableFormat, oneSchema, existingTable));
+        expectedGlueColumns,
+        GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema, existingTable));
   }
 
   @Test
@@ -539,7 +546,7 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
     NotSupportedException exception =
         assertThrows(
             NotSupportedException.class,
-            () -> GlueSchemaExtractor.toColumns(tableFormat, oneSchema));
+            () -> GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema));
     assertEquals("Unsupported type: OneType.UNION(name=union)", exception.getMessage());
 
     // Invalid decimal type (precision and scale metadata is missing)
@@ -557,7 +564,7 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
     exception =
         assertThrows(
             NotSupportedException.class,
-            () -> GlueSchemaExtractor.toColumns(tableFormat, oneSchema2));
+            () -> GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema2));
     assertEquals("Invalid decimal type, precision and scale is missing", exception.getMessage());
 
     // Invalid decimal type (scale metadata is missing)
@@ -578,7 +585,7 @@ public class TestGlueSchemaExtractor extends TestSchemaExtractorBase {
     exception =
         assertThrows(
             NotSupportedException.class,
-            () -> GlueSchemaExtractor.toColumns(tableFormat, oneSchema3));
+            () -> GlueSchemaExtractor.getInstance().toColumns(tableFormat, oneSchema3));
     assertEquals("Invalid decimal type, scale is missing", exception.getMessage());
   }
 }

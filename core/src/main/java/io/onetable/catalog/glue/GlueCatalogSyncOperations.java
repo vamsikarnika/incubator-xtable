@@ -18,15 +18,12 @@
  
 package io.onetable.catalog.glue;
 
-import static io.onetable.catalog.CatalogUtils.hasStorageDescriptorLocationChanged;
-
 import java.time.ZonedDateTime;
 import java.util.Collections;
 import java.util.List;
 
 import lombok.extern.log4j.Log4j2;
 
-import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -44,16 +41,11 @@ import io.onetable.catalog.CatalogConfigFactory;
 import io.onetable.catalog.CatalogSyncOperations;
 import io.onetable.catalog.ExternalCatalogConfig;
 import io.onetable.catalog.ExternalCatalogConfig.TableIdentifier;
-import io.onetable.exception.CatalogRefreshException;
 import io.onetable.model.OneTable;
-import io.onetable.model.catalog.CatalogType;
-import io.onetable.spi.sync.CatalogSyncClient;
 
 @Log4j2
-public abstract class GlueCatalogSyncClient
-    implements CatalogSyncOperations<Database, Table>, CatalogSyncClient {
+public abstract class GlueCatalogSyncOperations implements CatalogSyncOperations<Database, Table> {
   protected static final String GLUE_EXTERNAL_TABLE_TYPE = "EXTERNAL_TABLE";
-  protected static final String GLUE_TABLE_TYPE_PROP = "table_type";
   // Error encountered during table refresh that require table re-creation
   private static final List<String> RECREATE_TABLE_ERROR_MESSAGES = Collections.emptyList();
   private static final String TEMP_SUFFIX = "_temp";
@@ -62,25 +54,29 @@ public abstract class GlueCatalogSyncClient
   protected final GlueClient glueClient;
   protected final GlueCatalogConfig glueCatalogConfig;
   protected final Configuration configuration;
+  protected final GlueSchemaExtractor schemaExtractor;
 
-  public GlueCatalogSyncClient(
+  public GlueCatalogSyncOperations(
       ExternalCatalogConfig externalCatalogConfig, Configuration configuration) {
     this.glueCatalogConfig =
         CatalogConfigFactory.getGlueCatalogConfig(externalCatalogConfig.getCatalogProperties());
     this.glueClient = new DefaultGlueClientFactory(glueCatalogConfig).getGlueClient();
     this.tableIdentifier = externalCatalogConfig.getTableFormatsToSync().get(getTableFormat());
-    this.configuration = configuration;
+    this.configuration = new Configuration(configuration);
+    this.schemaExtractor = GlueSchemaExtractor.getInstance();
   }
 
-  GlueCatalogSyncClient(
+  GlueCatalogSyncOperations(
       TableIdentifier tableIdentifier,
       GlueClient glueClient,
       GlueCatalogConfig glueCatalogConfig,
-      Configuration configuration) {
+      Configuration configuration,
+      GlueSchemaExtractor schemaExtractor) {
     this.tableIdentifier = tableIdentifier;
     this.glueClient = glueClient;
     this.glueCatalogConfig = glueCatalogConfig;
-    this.configuration = configuration;
+    this.configuration = new Configuration(configuration);
+    this.schemaExtractor = schemaExtractor;
   }
 
   @Override
@@ -163,45 +159,15 @@ public abstract class GlueCatalogSyncClient
   }
 
   @Override
-  public void syncTable(OneTable table) {
-    boolean doesDatabaseExists = getDatabase(tableIdentifier.getDatabaseName()) != null;
-    if (!doesDatabaseExists) {
-      createDatabase(tableIdentifier.getDatabaseName());
-    }
-    Table glueTable = getTable(tableIdentifier);
-    if (glueTable == null) {
-      createTable(table, tableIdentifier);
-    } else if (glueTable.storageDescriptor() == null
-        || hasStorageDescriptorLocationChanged(
-            glueTable.storageDescriptor().location(), table.getBasePath())) {
-      // Replace table if there is a mismatch between glueTable location and OneTable basePath.
-      // Possible reasons could be:
-      //  1) glue table (manually) created with a different location before and need to be
-      // re-created with a new basePath
-      //  2) OneTable basePath changes due to migration or other reasons
-      String oldLocation =
-          glueTable.storageDescriptor() == null
-                  || StringUtils.isEmpty(glueTable.storageDescriptor().location())
-              ? "null"
-              : glueTable.storageDescriptor().location();
-      log.warn(
-          "StorageDescriptor location changed from {} to {}, re-creating table",
-          oldLocation,
-          table.getBasePath());
-      createOrReplaceTable(table, tableIdentifier);
-    } else {
-      try {
-        log.debug("Table metadata changed, refreshing table");
-        refreshTable(table, glueTable, tableIdentifier);
-      } catch (CatalogRefreshException e) {
-        log.warn("Table refresh failed, re-creating table", e);
-        createOrReplaceTable(table, tableIdentifier);
-      }
-    }
+  public TableIdentifier getTableIdentifier() {
+    return tableIdentifier;
   }
 
   @Override
-  public CatalogType getCatalogType() {
-    return CatalogType.GLUE;
+  public String getStorageDescriptorLocation(Table table) {
+    if (table == null || table.storageDescriptor() == null) {
+      return null;
+    }
+    return table.storageDescriptor().location();
   }
 }

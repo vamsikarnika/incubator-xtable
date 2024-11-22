@@ -26,6 +26,10 @@ public interface CatalogSyncOperations<DATABASE, TABLE> {
 
   String getTableFormat();
 
+  TableIdentifier getTableIdentifier();
+
+  String getStorageDescriptorLocation(TABLE table);
+
   DATABASE getDatabase(String databaseName);
 
   void createDatabase(String databaseName);

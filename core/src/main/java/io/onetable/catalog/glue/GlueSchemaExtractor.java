@@ -26,6 +26,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import lombok.AccessLevel;
+import lombok.NoArgsConstructor;
+
 import org.apache.commons.lang3.StringUtils;
 
 import org.apache.hudi.common.util.VisibleForTesting;
@@ -42,10 +45,16 @@ import io.onetable.exception.SchemaExtractorException;
 import io.onetable.model.schema.OneField;
 import io.onetable.model.schema.OneSchema;
 
+@NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class GlueSchemaExtractor {
+  private static final GlueSchemaExtractor INSTANCE = new GlueSchemaExtractor();
   private static final String FIELD_ID = "field.id";
   private static final String FIELD_OPTIONAL = "field.optional";
   private static final String FIELD_CURRENT = "field.current";
+
+  public static GlueSchemaExtractor getInstance() {
+    return INSTANCE;
+  }
 
   /**
    * Extract column list from OneTable schema
@@ -54,11 +63,11 @@ public class GlueSchemaExtractor {
    * @param tableSchema OneTable schema
    * @return glue table column list
    */
-  static List<Column> toColumns(String tableFormat, OneSchema tableSchema) {
+  List<Column> toColumns(String tableFormat, OneSchema tableSchema) {
     return toColumns(tableFormat, tableSchema, null);
   }
 
-  static List<Column> toColumns(String tableFormat, OneSchema tableSchema, Table existingTable) {
+  List<Column> toColumns(String tableFormat, OneSchema tableSchema, Table existingTable) {
     List<Column> columns = Lists.newArrayList();
     Set<String> addedNames = Sets.newHashSet();
     for (OneField field : tableSchema.getFields()) {
@@ -113,7 +122,7 @@ public class GlueSchemaExtractor {
    * @param fieldSchema OneTable field schema
    * @return glue column type
    */
-  private static String toTypeString(OneSchema fieldSchema, String tableFormat) {
+  private String toTypeString(OneSchema fieldSchema, String tableFormat) {
     switch (fieldSchema.getDataType()) {
       case BOOLEAN:
         return "boolean";

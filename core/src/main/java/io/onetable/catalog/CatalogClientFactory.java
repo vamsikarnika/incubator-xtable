@@ -30,8 +30,8 @@ import lombok.NoArgsConstructor;
 
 import org.apache.hadoop.conf.Configuration;
 
-import io.onetable.catalog.glue.GlueCatalogSyncClient;
-import io.onetable.catalog.glue.IcebergGlueCatalogSyncClient;
+import io.onetable.catalog.glue.IcebergGlueCatalogSyncOperations;
+import io.onetable.model.catalog.CatalogType;
 import io.onetable.spi.sync.CatalogSyncClient;
 
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
@@ -62,12 +62,17 @@ public class CatalogClientFactory {
     }
   }
 
-  private GlueCatalogSyncClient createGlueSyncClient(
+  private CatalogSyncClient createGlueSyncClient(
       String tableFormat,
       ExternalCatalogConfig externalCatalogConfig,
       Configuration configuration) {
     if (tableFormat.equals(ICEBERG)) {
-      return new IcebergGlueCatalogSyncClient(externalCatalogConfig, configuration);
+      CatalogSyncOperations<
+              software.amazon.awssdk.services.glue.model.Database,
+              software.amazon.awssdk.services.glue.model.Table>
+          catalogSyncOperations =
+              new IcebergGlueCatalogSyncOperations(externalCatalogConfig, configuration);
+      return new CatalogSyncClientImpl<>(catalogSyncOperations, CatalogType.GLUE);
     }
     throw new UnsupportedOperationException(
         "GlueCatalogSyncClient not supported for " + tableFormat);

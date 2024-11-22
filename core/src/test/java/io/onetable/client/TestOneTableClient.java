@@ -51,7 +51,6 @@ import org.mockito.ArgumentMatcher;
 
 import io.onetable.catalog.CatalogClientFactory;
 import io.onetable.catalog.ExternalCatalogConfig;
-import io.onetable.catalog.glue.IcebergGlueCatalogSyncClient;
 import io.onetable.model.CommitsBacklog;
 import io.onetable.model.IncrementalTableChanges;
 import io.onetable.model.InstantsForIncrementalSync;
@@ -81,10 +80,8 @@ public class TestOneTableClient {
   private final TargetClient mockTargetClient2 = mock(TargetClient.class);
   private final ExecutorService mockExecutorService = mock(ExecutorService.class);
   private final CatalogClientFactory mockCatalogClientFactory = mock(CatalogClientFactory.class);
-  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient1 =
-      mock(IcebergGlueCatalogSyncClient.class);
-  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient2 =
-      mock(IcebergGlueCatalogSyncClient.class);
+  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient1 = mock(CatalogSyncClient.class);
+  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient2 = mock(CatalogSyncClient.class);
   private final ExternalCatalogConfig mockGlueCatalogConfig1 =
       getExternalTableConfig("glue-catalog-1", CatalogType.GLUE);
   private final ExternalCatalogConfig mockGlueCatalogConfig2 =
