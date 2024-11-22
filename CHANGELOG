@@ -111,3 +111,11 @@ ab12f79 [ENG-15509] [Glue Catalog Sync] Glue catalog schema extractor implementa
 c88c658 [ENG-15509] Add interfaces and models for CatalogSync across table formats (#69)
 373dfa8 upgrading path-to-regexp version (#62)
 27524d4 Upgrade to version release-v0.11.0 (#60)
+
+---[2024-11-22 08:35:03] [release-v0.13.0] ---
+d0f07b8 [ENG-15511] [HMS Iceberg Sync] Add OneTableClient UT for Iceberg HMS sync and closing sync clients (#80)
+8314373 [ENG-15511] [HMS Iceberg Sync] Add HMS catalog sync client for Iceberg (#77)
+8d12cfc [ENG-15511] Refactor CatalogSyncClient implementation (#84)
+8770ee3 [ENG-15511] [HMS Iceberg Sync] Add HMS Client Config and SchemaExtractor (#72)
+3f9fb5a [ENG-16065] Custom credential provider support in Glue sync client (#73)
+3284ce5 Upgrade to version release-v0.12.0 (#74)
