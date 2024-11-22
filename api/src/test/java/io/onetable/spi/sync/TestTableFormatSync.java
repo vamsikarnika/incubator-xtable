@@ -61,6 +61,8 @@ public class TestTableFormatSync {
   private final TargetClient mockTargetClient2 = mock(TargetClient.class);
   private final CatalogSyncClient mockIcebergGlueCatalogSyncClient1 = mock(CatalogSyncClient.class);
   private final CatalogSyncClient mockIcebergGlueCatalogSyncClient2 = mock(CatalogSyncClient.class);
+  private final CatalogSyncClient mockIcebergHmsCatalogSyncClient1 = mock(CatalogSyncClient.class);
+  private final CatalogSyncClient mockIcebergHmsCatalogSyncClient2 = mock(CatalogSyncClient.class);
 
   @Test
   void syncSnapshotWithFailureForOneFormat() {
@@ -114,8 +116,10 @@ public class TestTableFormatSync {
     verify(mockTargetClient2).syncFilesForSnapshot(fileGroups);
     verify(mockTargetClient2).completeSync(true);
     verify(mockTargetClient1, never()).completeSync(anyBoolean());
-    verify(mockIcebergGlueCatalogSyncClient1, never()).syncTable(any());
-    verify(mockIcebergGlueCatalogSyncClient2, never()).syncTable(any());
+
+    // sync for iceberg failed so catalog sync should not happen
+    verifyIcebergGlueSyncClientCalls(false, null);
+    verifyIcebergHmsSyncClientCalls(false, null);
   }
 
   private static void assertSyncResultTimes(SyncResult syncResult, Instant start) {
@@ -210,8 +214,10 @@ public class TestTableFormatSync {
     verify(mockTargetClient1, times(1)).completeSync(false);
     verify(mockTargetClient2, times(2)).completeSync(false);
     verify(mockTargetClient2, times(1)).completeSync(true);
-    verify(mockIcebergGlueCatalogSyncClient1, never()).syncTable(any());
-    verify(mockIcebergGlueCatalogSyncClient2, never()).syncTable(any());
+
+    // sync for iceberg failed so catalog sync should not happen
+    verifyIcebergGlueSyncClientCalls(false, null);
+    verifyIcebergHmsSyncClientCalls(false, null);
   }
 
   @Test
@@ -300,8 +306,10 @@ public class TestTableFormatSync {
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff3);
     verify(mockTargetClient2, times(1)).completeSync(false);
     verify(mockTargetClient2, times(1)).completeSync(true);
-    verify(mockIcebergGlueCatalogSyncClient1, times(1)).syncTable(tableState3);
-    verify(mockIcebergGlueCatalogSyncClient2, times(1)).syncTable(tableState3);
+
+    // sync for iceberg should happen for tableState3
+    verifyIcebergGlueSyncClientCalls(true, tableState3);
+    verifyIcebergHmsSyncClientCalls(true, tableState3);
   }
 
   @Test
@@ -351,8 +359,10 @@ public class TestTableFormatSync {
 
     verifyBaseClientCalls(mockTargetClient2, tableState1, pendingCommitInstants);
     verify(mockTargetClient2).syncFilesForDiff(dataFilesDiff1);
-    verify(mockIcebergGlueCatalogSyncClient1, never()).syncTable(any());
-    verify(mockIcebergGlueCatalogSyncClient2, never()).syncTable(any());
+
+    // no changes for iceberg so catalog sync should not happen
+    verifyIcebergGlueSyncClientCalls(false, null);
+    verifyIcebergHmsSyncClientCalls(false, null);
   }
 
   @Test
@@ -409,13 +419,19 @@ public class TestTableFormatSync {
     verify(mockTargetClient2).syncFilesForSnapshot(fileGroups);
     verify(mockTargetClient2).completeSync(true);
     verify(mockTargetClient1).completeSync(true);
-    verify(mockIcebergGlueCatalogSyncClient1, times(1)).syncTable(startingTableState);
-    verify(mockIcebergGlueCatalogSyncClient2, times(1)).syncTable(startingTableState);
+    verifyIcebergGlueSyncClientCalls(true, startingTableState);
+    verifyIcebergHmsSyncClientCalls(false, null);
   }
 
   private List<CatalogSyncClient> getMockCatalogSyncClientsForFormat(String tableFormat) {
     if (tableFormat.equals(TableFormat.ICEBERG)) {
-      return Arrays.asList(mockIcebergGlueCatalogSyncClient1, mockIcebergGlueCatalogSyncClient2);
+      return Arrays.asList(
+          // iceberg glue sync clients
+          mockIcebergGlueCatalogSyncClient1,
+          mockIcebergGlueCatalogSyncClient2,
+          // iceberg hms sync clients
+          mockIcebergHmsCatalogSyncClient1,
+          mockIcebergHmsCatalogSyncClient2);
     } else {
       return Collections.emptyList();
     }
@@ -467,5 +483,25 @@ public class TestTableFormatSync {
     verify(mockClient)
         .syncMetadata(
             OneTableMetadata.of(startingTableState.getLatestCommitTime(), pendingCommitInstants));
+  }
+
+  private void verifyIcebergGlueSyncClientCalls(boolean hasSynced, OneTable table) {
+    if (hasSynced) {
+      verify(mockIcebergGlueCatalogSyncClient1, times(1)).syncTable(table);
+      verify(mockIcebergGlueCatalogSyncClient2, times(1)).syncTable(table);
+    } else {
+      verify(mockIcebergGlueCatalogSyncClient1, never()).syncTable(any());
+      verify(mockIcebergGlueCatalogSyncClient2, never()).syncTable(any());
+    }
+  }
+
+  private void verifyIcebergHmsSyncClientCalls(boolean hasSynced, OneTable table) {
+    if (hasSynced) {
+      verify(mockIcebergHmsCatalogSyncClient1, times(1)).syncTable(table);
+      verify(mockIcebergHmsCatalogSyncClient2, times(1)).syncTable(table);
+    } else {
+      verify(mockIcebergHmsCatalogSyncClient1, never()).syncTable(any());
+      verify(mockIcebergHmsCatalogSyncClient2, never()).syncTable(any());
+    }
   }
 }

@@ -109,13 +109,14 @@ public class OneTableClient implements AutoCloseable {
       throw new IllegalArgumentException("Please provide at-least one format to sync");
     }
 
+    // Build syncClients by table format
+    Map<String, TableFormatSync.TableSyncClients> syncClientsByFormat =
+        getSyncClientsByFormat(config);
+
     try (SourceClient<COMMIT> sourceClient =
         sourceClientProvider.getSourceClientInstance(config, executorService)) {
       ExtractFromSource<COMMIT> source = ExtractFromSource.of(sourceClient);
 
-      // Build syncClients by table format
-      Map<String, TableFormatSync.TableSyncClients> syncClientsByFormat =
-          getSyncClientsByFormat(config);
       // State for each TableFormat
       Map<String, Optional<OneTableMetadata>> lastSyncMetadataByFormat =
           syncClientsByFormat.entrySet().stream()
@@ -159,6 +160,8 @@ public class OneTableClient implements AutoCloseable {
       return syncResultsMerged;
     } catch (IOException ioException) {
       throw new OneIOException("Failed to close source client", ioException);
+    } finally {
+      closeClients(syncClientsByFormat);
     }
   }
 
@@ -329,5 +332,24 @@ public class OneTableClient implements AutoCloseable {
   @Builder
   private static class SyncResultForTableFormats {
     @Builder.Default Map<String, SyncResult> lastSyncResult = Collections.emptyMap();
+  }
+
+  private void closeClients(Map<String, TableFormatSync.TableSyncClients> syncClientsByFormat) {
+    syncClientsByFormat.forEach(
+        (key, value) ->
+            value
+                .getCatalogSyncClients()
+                .forEach(
+                    client -> {
+                      try {
+                        client.close();
+                      } catch (Exception e) {
+                        log.error(
+                            "error closing {} catalog client for {} table format",
+                            client.getCatalogType(),
+                            key,
+                            e);
+                      }
+                    }));
   }
 }

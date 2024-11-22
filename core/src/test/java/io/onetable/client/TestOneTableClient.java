@@ -23,9 +23,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.time.Duration;
@@ -43,14 +40,11 @@ import java.util.concurrent.ExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.ArgumentMatcher;
 
-import io.onetable.catalog.CatalogClientFactory;
-import io.onetable.catalog.ExternalCatalogConfig;
 import io.onetable.model.CommitsBacklog;
 import io.onetable.model.IncrementalTableChanges;
 import io.onetable.model.InstantsForIncrementalSync;
@@ -58,18 +52,15 @@ import io.onetable.model.OneSnapshot;
 import io.onetable.model.OneTable;
 import io.onetable.model.OneTableMetadata;
 import io.onetable.model.TableChange;
-import io.onetable.model.catalog.CatalogType;
 import io.onetable.model.storage.TableFormat;
 import io.onetable.model.sync.SyncMode;
 import io.onetable.model.sync.SyncResult;
 import io.onetable.spi.extractor.SourceClient;
-import io.onetable.spi.sync.CatalogSyncClient;
 import io.onetable.spi.sync.TableFormatSync;
 import io.onetable.spi.sync.TargetClient;
 
-public class TestOneTableClient {
+public class TestOneTableClient extends CatalogSyncClientTestBase {
 
-  private final Configuration mockConf = mock(Configuration.class);
   private final SourceClientProvider<Instant> mockSourceClientProvider =
       mock(SourceClientProvider.class);
   private final SourceClient<Instant> mockSourceClient = mock(SourceClient.class);
@@ -79,13 +70,6 @@ public class TestOneTableClient {
   private final TargetClient mockTargetClient1 = mock(TargetClient.class);
   private final TargetClient mockTargetClient2 = mock(TargetClient.class);
   private final ExecutorService mockExecutorService = mock(ExecutorService.class);
-  private final CatalogClientFactory mockCatalogClientFactory = mock(CatalogClientFactory.class);
-  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient1 = mock(CatalogSyncClient.class);
-  private final CatalogSyncClient mockIcebergGlueCatalogSyncClient2 = mock(CatalogSyncClient.class);
-  private final ExternalCatalogConfig mockGlueCatalogConfig1 =
-      getExternalTableConfig("glue-catalog-1", CatalogType.GLUE);
-  private final ExternalCatalogConfig mockGlueCatalogConfig2 =
-      getExternalTableConfig("glue-catalog-2", CatalogType.GLUE);
 
   @ParameterizedTest
   @ValueSource(booleans = {false, true})
@@ -127,8 +111,13 @@ public class TestOneTableClient {
             mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(perTableResults, result);
+
+    // verify iceberg catalog sync client interactions
     verifyCreateGlueCatalogClientsForIcebergFormat(isExternalCatalogSyncEnabled);
+    verifyCreateHmsCatalogClientsForIcebergFormat(isExternalCatalogSyncEnabled);
     verifyCreateGlueCatalogClientsForDeltaFormat();
+    verifyCreateHmsCatalogClientsForDeltaFormat();
+    verifyCatalogSyncClientsClose(isExternalCatalogSyncEnabled);
   }
 
   @ParameterizedTest
@@ -223,8 +212,13 @@ public class TestOneTableClient {
             mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(expectedSyncResult, result);
+
+    // verify iceberg catalog sync client interactions
     verifyCreateGlueCatalogClientsForIcebergFormat(isExternalCatalogSyncEnabled);
+    verifyCreateHmsCatalogClientsForIcebergFormat(isExternalCatalogSyncEnabled);
     verifyCreateGlueCatalogClientsForDeltaFormat();
+    verifyCreateHmsCatalogClientsForDeltaFormat();
+    verifyCatalogSyncClientsClose(isExternalCatalogSyncEnabled);
   }
 
   @ParameterizedTest
@@ -277,8 +271,13 @@ public class TestOneTableClient {
             mockExecutorService);
     Map<String, SyncResult> result = oneTableClient.sync(perTableConfig, mockSourceClientProvider);
     assertEquals(syncResults, result);
+
+    // verify iceberg catalog sync client interactions
     verifyCreateGlueCatalogClientsForIcebergFormat(isExternalCatalogSyncEnabled);
+    verifyCreateHmsCatalogClientsForIcebergFormat(isExternalCatalogSyncEnabled);
     verifyCreateGlueCatalogClientsForDeltaFormat();
+    verifyCreateHmsCatalogClientsForDeltaFormat();
+    verifyCatalogSyncClientsClose(isExternalCatalogSyncEnabled);
   }
 
   @Test
@@ -474,47 +473,14 @@ public class TestOneTableClient {
             .targetTableFormats(targetTableFormats)
             .syncMode(syncMode);
     if (isExternalCatalogSyncEnabled) {
-      builder.externalCatalogConfigs(Arrays.asList(mockGlueCatalogConfig1, mockGlueCatalogConfig2));
+      builder.externalCatalogConfigs(
+          Arrays.asList(
+              mockGlueCatalogConfig1,
+              mockGlueCatalogConfig2,
+              mockHmsCatalogConfig1,
+              mockHmsCatalogConfig2));
     }
     return builder.build();
-  }
-
-  private ExternalCatalogConfig getExternalTableConfig(
-      String catalogIdentifier, CatalogType catalogType) {
-    return ExternalCatalogConfig.builder()
-        .catalogIdentifier(catalogIdentifier)
-        .catalogType(catalogType)
-        .tableFormatsToSync(getTableFormatsToSync())
-        .catalogProperties(getGlueCatalogProperties())
-        .build();
-  }
-
-  private Map<String, ExternalCatalogConfig.TableIdentifier> getTableFormatsToSync() {
-    Map<String, ExternalCatalogConfig.TableIdentifier> tableFormatsToSync = new HashMap<>();
-    tableFormatsToSync.put(
-        TableFormat.ICEBERG,
-        ExternalCatalogConfig.TableIdentifier.builder()
-            .databaseName("iceberg_db")
-            .tableName("iceberg_table")
-            .build());
-    return tableFormatsToSync;
-  }
-
-  private Map<String, String> getGlueCatalogProperties() {
-    return new HashMap<>();
-  }
-
-  private List<CatalogSyncClient> getMockCatalogSyncClientsForFormat(
-      String tableFormat, boolean isExternalCatalogSyncEnabled) {
-    if (isExternalCatalogSyncEnabled) {
-      if (tableFormat.equals(TableFormat.ICEBERG)) {
-        return Arrays.asList(mockIcebergGlueCatalogSyncClient1, mockIcebergGlueCatalogSyncClient2);
-      } else {
-        return Collections.emptyList();
-      }
-    } else {
-      return Collections.emptyList();
-    }
   }
 
   private void mockTableFormatIncrementalSync(
@@ -539,37 +505,6 @@ public class TestOneTableClient {
     when(mockTableFormatClientFactory.createForFormat(
             tableFormat, perTableConfig, mockConf, mockExecutorService))
         .thenReturn(targetClient);
-  }
-
-  private void mockCreateIcebergCatalogClient() {
-    when(mockCatalogClientFactory.createForCatalogAndFormat(
-            TableFormat.ICEBERG, mockGlueCatalogConfig1, mockConf))
-        .thenReturn(Collections.singletonList(mockIcebergGlueCatalogSyncClient1));
-    when(mockCatalogClientFactory.createForCatalogAndFormat(
-            TableFormat.ICEBERG, mockGlueCatalogConfig2, mockConf))
-        .thenReturn(Collections.singletonList(mockIcebergGlueCatalogSyncClient2));
-  }
-
-  private void verifyCreateGlueCatalogClientsForIcebergFormat(
-      boolean isExternalCatalogSyncEnabled) {
-    if (!isExternalCatalogSyncEnabled) {
-      verify(mockCatalogClientFactory, never())
-          .createForCatalogAndFormat(TableFormat.ICEBERG, mockGlueCatalogConfig1, mockConf);
-      verify(mockCatalogClientFactory, never())
-          .createForCatalogAndFormat(TableFormat.ICEBERG, mockGlueCatalogConfig2, mockConf);
-    } else {
-      verify(mockCatalogClientFactory, times(1))
-          .createForCatalogAndFormat(TableFormat.ICEBERG, mockGlueCatalogConfig1, mockConf);
-      verify(mockCatalogClientFactory, times(1))
-          .createForCatalogAndFormat(TableFormat.ICEBERG, mockGlueCatalogConfig2, mockConf);
-    }
-  }
-
-  private void verifyCreateGlueCatalogClientsForDeltaFormat() {
-    verify(mockCatalogClientFactory, never())
-        .createForCatalogAndFormat(TableFormat.DELTA, mockGlueCatalogConfig1, mockConf);
-    verify(mockCatalogClientFactory, never())
-        .createForCatalogAndFormat(TableFormat.DELTA, mockGlueCatalogConfig2, mockConf);
   }
 
   private TableFormatSync.TableSyncClients getSyncClients(
