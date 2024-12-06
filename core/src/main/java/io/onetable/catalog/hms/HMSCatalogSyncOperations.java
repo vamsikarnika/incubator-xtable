@@ -183,6 +183,7 @@ public abstract class HMSCatalogSyncOperations implements CatalogSyncOperations<
         | InvocationTargetException ex) {
       metaStoreClient = Hive.get(hiveConf).getMSC();
     }
+    log.debug("Connected to metastore with uri: {}", hmsCatalogConfig.getServerUrl());
     return metaStoreClient;
   }
 

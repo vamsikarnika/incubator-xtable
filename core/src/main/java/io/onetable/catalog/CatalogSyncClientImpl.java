@@ -44,6 +44,11 @@ public class CatalogSyncClientImpl<Database, Table> implements CatalogSyncClient
   @Override
   public void syncTable(OneTable oneTable) {
     ExternalCatalogConfig.TableIdentifier tableIdentifier = operations.getTableIdentifier();
+    log.debug(
+        "Running {} catalog sync for {} table: {}",
+        catalogType,
+        operations.getTableFormat(),
+        tableIdentifier.getId());
     boolean doesDatabaseExists = operations.getDatabase(tableIdentifier.getDatabaseName()) != null;
     if (!doesDatabaseExists) {
       operations.createDatabase(tableIdentifier.getDatabaseName());
@@ -75,10 +80,10 @@ public class CatalogSyncClientImpl<Database, Table> implements CatalogSyncClient
         operations.createOrReplaceTable(oneTable, tableIdentifier);
       }
     }
-    log.debug(
-        "{} {} catalog sync successful for: {}",
-        operations.getTableFormat(),
+    log.info(
+        "{} catalog sync successful for {} table: {}",
         catalogType,
+        operations.getTableFormat(),
         tableIdentifier.getId());
   }
 

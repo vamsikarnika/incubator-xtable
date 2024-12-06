@@ -92,6 +92,7 @@ public class IcebergHMSCatalogSyncOperations extends HMSCatalogSyncOperations {
     try {
       BaseTable icebergTable = loadTableFromFs(table.getBasePath());
       Map<String, String> parameters = hmsTable.getParameters();
+      parameters.putAll(icebergTable.properties());
       String currentMetadataLocation = parameters.get(METADATA_LOCATION_PROP);
       parameters.put(PREVIOUS_METADATA_LOCATION_PROP, currentMetadataLocation);
       parameters.put(METADATA_LOCATION_PROP, getMetadataFileLocation(icebergTable));

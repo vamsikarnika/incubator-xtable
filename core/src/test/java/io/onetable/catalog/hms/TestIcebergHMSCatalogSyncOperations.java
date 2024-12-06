@@ -71,6 +71,9 @@ public class TestIcebergHMSCatalogSyncOperations extends HMSCatalogSyncOperation
   private IcebergHMSCatalogSyncOperations mockIcebergHmsCatalogSyncOperations;
 
   private static final String ICEBERG_METADATA_FILE_LOCATION = "onetable-base-path/metadata";
+  private static final String ICEBERG_METADATA_FILE_LOCATION_V2 = "onetable-base-path/v2-metadata";
+  private static final String ONETABLE_LAST_INSTANT_SYNCED_PROP = "ONETABLE_LAST_INSTANT_SYNCED";
+  private static final String SCHEMA_NAME_MAPPING_PROP = "schema.name-mapping.default";
 
   private IcebergHMSCatalogSyncOperations createIcebergHMSCatalogSyncOperations() {
     return new IcebergHMSCatalogSyncOperations(
@@ -241,8 +244,17 @@ public class TestIcebergHMSCatalogSyncOperations extends HMSCatalogSyncOperation
 
     Map<String, String> tableParams = new HashMap<>();
     tableParams.put(METADATA_LOCATION_PROP, ICEBERG_METADATA_FILE_LOCATION);
-    Table hmsTable =
-        mockIcebergHmsCatalogSyncOperations.newHmsTable(TEST_ONETABLE, TEST_TABLE_IDENTIFIER);
+    tableParams.put(ONETABLE_LAST_INSTANT_SYNCED_PROP, "ts1");
+    tableParams.put(SCHEMA_NAME_MAPPING_PROP, "v1-schema");
+    Table hmsTable = newHmsTable(HMS_DATABASE, HMS_TABLE, tableParams);
+    hmsTable.setSd(getTestStorageDescriptor());
+
+    Map<String, String> newTableParams = new HashMap<>();
+    newTableParams.put(ONETABLE_LAST_INSTANT_SYNCED_PROP, "ts2");
+    newTableParams.put(SCHEMA_NAME_MAPPING_PROP, "v2-schema");
+
+    when(mockTableMetadata.metadataFileLocation()).thenReturn(ICEBERG_METADATA_FILE_LOCATION_V2);
+    when(mockBaseTable.properties()).thenReturn(newTableParams);
 
     if (shouldFail) {
       doThrow(new RuntimeException("something went wrong"))
@@ -257,8 +269,13 @@ public class TestIcebergHMSCatalogSyncOperations extends HMSCatalogSyncOperation
       mockIcebergHmsCatalogSyncOperations.refreshTable(
           TEST_ONETABLE, hmsTable, TEST_TABLE_IDENTIFIER);
       verify(mockMetaStoreClient, times(1)).alter_table(HMS_DATABASE, HMS_TABLE, hmsTable);
+      // verify table contains latest iceberg metadata params during alter_table operation
+      assertEquals(hmsTable.getParameters().get(ONETABLE_LAST_INSTANT_SYNCED_PROP), "ts2");
+      assertEquals(hmsTable.getParameters().get(SCHEMA_NAME_MAPPING_PROP), "v2-schema");
+      assertEquals(
+          hmsTable.getParameters().get(METADATA_LOCATION_PROP), ICEBERG_METADATA_FILE_LOCATION_V2);
     }
-    verify(mockHmsSchemaExtractor, times(2))
+    verify(mockHmsSchemaExtractor, times(1))
         .toColumns(TableFormat.ICEBERG, TEST_ONETABLE.getReadSchema());
   }
 
