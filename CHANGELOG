@@ -124,3 +124,6 @@ d0f07b8 [ENG-15511] [HMS Iceberg Sync] Add OneTableClient UT for Iceberg HMS syn
 1f2fb28 [ENG-18374] Add release workflow automation (#89)
 2b73c89 [ENG-18271] Update Iceberg metadata properties during table refresh in HMS sync (#87)
 e2425b5 [ENG-15511] Upgrade to version release-v0.13.0 (#86)
+
+--- [2024-12-10 16:03:36] [release-v0.15.0] ---
+[ENG-18374] Fix versioning (#91)
