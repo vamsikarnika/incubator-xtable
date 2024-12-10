@@ -11,9 +11,33 @@ permissions:
   contents: read
 
 jobs:
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      skip: ${{ steps.check-changelog.outputs.skip }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+
+      - name: Check changed files
+        id: check-changelog
+        run: |
+          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
+          echo "CHANGED_FILES: $CHANGED_FILES"
+          if [[ "$CHANGED_FILES" == "CHANGELOG" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "skipping build as only CHANGELOG is changed"
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    needs: check-changes
+    # Job-level condition to skip when only CHANGELOG is changed
+    if: ${{ needs.check-changes.outputs.skip != 'true' }}
 
     steps:
       - name: Checkout self
