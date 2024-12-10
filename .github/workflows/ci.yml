@@ -24,13 +24,19 @@ jobs:
       - name: Check changed files
         id: check-changelog
         run: |
-          CHANGED_FILES=$(git diff --name-only ${{ github.event.before }} ${{ github.sha }})
-          echo "CHANGED_FILES: $CHANGED_FILES"
-          if [[ "$CHANGED_FILES" == "CHANGELOG" ]]; then
-            echo "skip=true" >> $GITHUB_OUTPUT
-            echo "skipping build as only CHANGELOG is changed"
-          else
+          DEFAULT_BRANCH=${{ github.event.repository.default_branch }}
+          git fetch origin $DEFAULT_BRANCH
+      
+          # Get the changed files between the current commit and the latest default branch
+          CHANGED_FILES=$(git diff --name-only origin/$DEFAULT_BRANCH ${{ github.sha }})
+          echo "Changed files: $CHANGED_FILES"
+      
+          if echo "$CHANGED_FILES" | grep -vE '^(CHANGELOG|README\.md)$' >/dev/null; then
+            # There are files other than CHANGELOG or README.md
             echo "skip=false" >> $GITHUB_OUTPUT
+          else
+            # All changes are limited to CHANGELOG and README.md
+            echo "skip=true" >> $GITHUB_OUTPUT
           fi
   build:
     runs-on: ubuntu-latest

@@ -119,3 +119,8 @@ d0f07b8 [ENG-15511] [HMS Iceberg Sync] Add OneTableClient UT for Iceberg HMS syn
 8770ee3 [ENG-15511] [HMS Iceberg Sync] Add HMS Client Config and SchemaExtractor (#72)
 3f9fb5a [ENG-16065] Custom credential provider support in Glue sync client (#73)
 3284ce5 Upgrade to version release-v0.12.0 (#74)
+
+--- [2024-12-10 01:35:12] [release-v0.14.0] ---
+1f2fb28 [ENG-18374] Add release workflow automation (#89)
+2b73c89 [ENG-18271] Update Iceberg metadata properties during table refresh in HMS sync (#87)
+e2425b5 [ENG-15511] Upgrade to version release-v0.13.0 (#86)
