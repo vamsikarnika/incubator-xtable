@@ -31,12 +31,15 @@ jobs:
           server-id: codeartifact
           server-username: AWS
           server-password: CODEARTIFACT_AUTH_TOKEN
-      - name: Set TAG_PRESENT_IN_COMMIT
-        run: echo "TAG_PRESENT_IN_COMMIT=$(git tag --contains $COMMIT_HASH | head -1)" >> $GITHUB_ENV
+      - name: Set RELEASE_BRANCH
+        run: echo "RELEASE_BRANCH=${{ github.ref_name }}" >> $GITHUB_ENV
       - name: Set VERSION
-        run: echo "VERSION=$(echo $TAG_PRESENT_IN_COMMIT | sed -e s/release-v//)" >> $GITHUB_ENV
+        env:
+          SPARK_PROFILE: ${{ matrix.sparkProfile }}
+        run: |
+          echo "VERSION=$(echo $RELEASE_BRANCH | sed -e 's/release-v//')" >> $GITHUB_ENV
       - name: Print Version
-        run: echo "$VERSION"
+        run: echo "$RELEASE_BRANCH $VERSION"
       - name: Fail if version not set
         if: env.VERSION == ''
         run: exit 1
