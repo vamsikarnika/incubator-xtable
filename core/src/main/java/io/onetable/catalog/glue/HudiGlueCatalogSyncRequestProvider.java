@@ -33,6 +33,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import lombok.extern.log4j.Log4j2;
@@ -79,6 +80,7 @@ import io.onetable.catalog.Partition;
 import io.onetable.exception.CatalogSyncException;
 import io.onetable.hudi.HudiPartitionSyncTool;
 import io.onetable.hudi.HudiSparkDataSourceTableUtils;
+import io.onetable.hudi.HudiTableManager;
 import io.onetable.model.OneTable;
 import io.onetable.model.schema.OnePartitionField;
 import io.onetable.model.schema.OneSchema;
@@ -92,6 +94,7 @@ public class HudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncRequestPr
   private final Configuration configuration;
   private final GlueSchemaExtractor schemaExtractor;
   private final GlueClient glueClient;
+  private final HudiTableManager hudiTableManager;
   private final PartitionValueExtractor partitionValueExtractor;
   private HoodieTableMetaClient metaClient;
 
@@ -104,19 +107,41 @@ public class HudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncRequestPr
     this.glueClient = glueClient;
     this.configuration = configuration;
     this.schemaExtractor = schemaExtractor;
+    this.hudiTableManager = HudiTableManager.of(configuration);
     // TODO : get default partition value extractor from configs
     this.partitionValueExtractor =
         ReflectionUtils.createInstanceOfClass(MultiPartKeysValueExtractor.class.getName());
   }
 
+  @VisibleForTesting
+  HudiGlueCatalogSyncRequestProvider(
+      GlueCatalogConfig glueCatalogConfig,
+      GlueClient glueClient,
+      GlueSchemaExtractor schemaExtractor,
+      HudiTableManager hudiTableManager,
+      Configuration configuration,
+      HoodieTableMetaClient metaClient,
+      PartitionValueExtractor partitionValueExtractor) {
+    super(glueCatalogConfig);
+    this.hudiTableManager = hudiTableManager;
+    this.glueClient = glueClient;
+    this.schemaExtractor = schemaExtractor;
+    this.configuration = configuration;
+    this.metaClient = metaClient;
+    this.partitionValueExtractor = partitionValueExtractor;
+  }
+
   HoodieTableMetaClient getMetaClient(String basePath) {
     if (metaClient == null) {
-      metaClient =
-          HoodieTableMetaClient.builder()
-              .setConf(configuration)
-              .setBasePath(basePath)
-              .setLoadActiveTimelineOnLoad(true)
-              .build();
+      Optional<HoodieTableMetaClient> metaClientOpt =
+          hudiTableManager.loadTableMetaClientIfExists(basePath);
+
+      if (!metaClientOpt.isPresent()) {
+        throw new CatalogSyncException(
+            "failed to get meta client since table is not present in the base path " + basePath);
+      }
+
+      metaClient = metaClientOpt.get();
     }
     return metaClient;
   }
@@ -147,7 +172,7 @@ public class HudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncRequestPr
         table.getPartitioningFields().stream()
             .map(field -> field.getSourceField().getName())
             .collect(Collectors.toList());
-    Map<String, String> tableParameters = glueTable.parameters();
+    Map<String, String> tableParameters = new HashMap<>(glueTable.parameters());
     tableParameters.putAll(getTableParameters(partitionFields, table.getReadSchema()));
     List<Column> newColumns = getSchemaWithoutPartitionKeys(table);
     StorageDescriptor sd = glueTable.storageDescriptor();

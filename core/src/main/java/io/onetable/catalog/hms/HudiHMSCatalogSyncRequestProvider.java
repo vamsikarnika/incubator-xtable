@@ -39,6 +39,7 @@ import lombok.extern.log4j.Log4j2;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.IMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
+import org.apache.hadoop.hive.metastore.api.NoSuchObjectException;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.SerDeInfo;
 import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
@@ -63,6 +64,7 @@ import io.onetable.catalog.CatalogPartitionSyncOperations;
 import io.onetable.catalog.ExternalCatalogConfig;
 import io.onetable.catalog.ExternalCatalogConfig.TableIdentifier;
 import io.onetable.exception.CatalogSyncException;
+import io.onetable.hudi.HudiPartitionSyncTool;
 import io.onetable.hudi.HudiSparkDataSourceTableUtils;
 import io.onetable.hudi.HudiTableManager;
 import io.onetable.model.OneTable;
@@ -79,6 +81,7 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
   private final IMetaStoreClient metaStoreClient;
   private final HMSSchemaExtractor schemaExtractor;
   private final PartitionValueExtractor partitionValueExtractor;
+  private final Configuration configuration;
 
   private HoodieTableMetaClient metaClient;
 
@@ -91,9 +94,28 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
     this.hudiTableManager = HudiTableManager.of(configuration);
     this.metaStoreClient = metaStoreClient;
     this.schemaExtractor = schemaExtractor;
+    this.configuration = configuration;
     // TODO - fetch this class name from hms catalog configs
     this.partitionValueExtractor =
         ReflectionUtils.createInstanceOfClass(MultiPartKeysValueExtractor.class.getName());
+  }
+
+  @VisibleForTesting
+  HudiHMSCatalogSyncRequestProvider(
+      HMSCatalogConfig hmsCatalogConfig,
+      IMetaStoreClient metaStoreClient,
+      HMSSchemaExtractor schemaExtractor,
+      HudiTableManager hudiTableManager,
+      Configuration configuration,
+      HoodieTableMetaClient metaClient,
+      PartitionValueExtractor partitionValueExtractor) {
+    super(hmsCatalogConfig);
+    this.hudiTableManager = hudiTableManager;
+    this.metaStoreClient = metaStoreClient;
+    this.schemaExtractor = schemaExtractor;
+    this.configuration = configuration;
+    this.metaClient = metaClient;
+    this.partitionValueExtractor = partitionValueExtractor;
   }
 
   HoodieTableMetaClient getMetaClient(String basePath) {
@@ -103,8 +125,7 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
 
       if (!metaClientOpt.isPresent()) {
         throw new CatalogSyncException(
-            "failed to sync partitions since table is not present in the base path for "
-                + basePath);
+            "failed to get meta client since table is not present in the base path " + basePath);
       }
 
       metaClient = metaClientOpt.get();
@@ -113,7 +134,7 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
   }
 
   @Override
-  Table getCreateTableInput(OneTable table, ExternalCatalogConfig.TableIdentifier tableIdentifier) {
+  Table getCreateTableInput(OneTable table, TableIdentifier tableIdentifier) {
     Table newTb = new Table();
     newTb.setDbName(tableIdentifier.getDatabaseName());
     newTb.setTableName(tableIdentifier.getTableName());
@@ -137,6 +158,56 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
     return newTb;
   }
 
+  @Override
+  Table getUpdateTableInput(OneTable table, Table hmsTable, TableIdentifier tableIdentifier) {
+    Map<String, String> parameters = hmsTable.getParameters();
+    List<String> partitionFields =
+        table.getPartitioningFields().stream()
+            .map(field -> field.getSourceField().getName())
+            .collect(Collectors.toList());
+    Map<String, String> tableParameters = hmsTable.getParameters();
+    tableParameters.putAll(getTableProperties(partitionFields, table.getReadSchema()));
+    hmsTable.setParameters(tableParameters);
+    hmsTable.setSd(getStorageDescriptor(table));
+
+    hmsTable.setParameters(parameters);
+    hmsTable.getSd().setCols(getSchemaWithoutPartitionKeys(table));
+    return hmsTable;
+  }
+
+  @Override
+  protected void syncPartitions(OneTable oneTable, TableIdentifier tableIdentifier) {
+    Table table = getTable(tableIdentifier);
+    Option<String> lastCommitTimeSynced =
+        Option.ofNullable(table.getParameters().get(LAST_COMMIT_TIME_SYNC));
+    Option<String> lastCommitCompletionTimeSynced =
+        Option.ofNullable(table.getParameters().get(LAST_COMMIT_COMPLETION_TIME_SYNC));
+    HoodieTableMetaClient metaClient = getMetaClient(oneTable.getBasePath());
+    HudiPartitionSyncTool hudiPartitionSyncTool =
+        new HudiPartitionSyncTool(metaClient, this, partitionValueExtractor);
+    boolean updatedPartitions =
+        hudiPartitionSyncTool.syncPartitions(
+            oneTable,
+            tableIdentifier,
+            configuration,
+            lastCommitTimeSynced,
+            lastCommitCompletionTimeSynced);
+    if (updatedPartitions) {
+      updateLastCommitTimeSynced(tableIdentifier);
+    }
+  }
+
+  public Table getTable(TableIdentifier tableIdentifier) {
+    try {
+      return metaStoreClient.getTable(
+          tableIdentifier.getDatabaseName(), tableIdentifier.getTableName());
+    } catch (NoSuchObjectException e) {
+      return null;
+    } catch (TException e) {
+      throw new CatalogSyncException("Failed to get table: " + tableIdentifier.getId(), e);
+    }
+  }
+
   private Map<String, String> getTableProperties(List<String> partitionFields, OneSchema schema) {
     Map<String, String> sparkTableProperties =
         HudiSparkDataSourceTableUtils.getSparkTableProperties(
@@ -147,7 +218,7 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
   @VisibleForTesting
   StorageDescriptor getStorageDescriptor(OneTable table) {
     final StorageDescriptor storageDescriptor = new StorageDescriptor();
-    storageDescriptor.setCols(schemaExtractor.toColumns(TableFormat.HUDI, table.getReadSchema()));
+    storageDescriptor.setCols(getSchemaWithoutPartitionKeys(table));
     storageDescriptor.setLocation(table.getBasePath());
     HoodieFileFormat fileFormat =
         getMetaClient(table.getBasePath()).getTableConfig().getBaseFileFormat();
@@ -162,6 +233,16 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
     serDeInfo.setParameters(serdeProperties);
     storageDescriptor.setSerdeInfo(serDeInfo);
     return storageDescriptor;
+  }
+
+  List<FieldSchema> getSchemaWithoutPartitionKeys(OneTable table) {
+    List<String> partitionKeys =
+        table.getPartitioningFields().stream()
+            .map(field -> field.getSourceField().getName())
+            .collect(Collectors.toList());
+    return schemaExtractor.toColumns(TableFormat.HUDI, table.getReadSchema()).stream()
+        .filter(c -> !partitionKeys.contains(c.getName()))
+        .collect(Collectors.toList());
   }
 
   List<FieldSchema> getSchemaPartitionKeys(OneTable table) {
@@ -181,23 +262,6 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
               }
             })
         .collect(Collectors.toList());
-  }
-
-  @Override
-  Table getUpdateTableInput(OneTable table, Table hmsTable, TableIdentifier tableIdentifier) {
-    Map<String, String> parameters = hmsTable.getParameters();
-    List<String> partitionFields =
-        table.getPartitioningFields().stream()
-            .map(field -> field.getSourceField().getName())
-            .collect(Collectors.toList());
-    Map<String, String> tableParameters = hmsTable.getParameters();
-    tableParameters.putAll(getTableProperties(partitionFields, table.getReadSchema()));
-    hmsTable.setParameters(tableParameters);
-    hmsTable.setSd(getStorageDescriptor(table));
-
-    hmsTable.setParameters(parameters);
-    hmsTable.getSd().setCols(schemaExtractor.toColumns(TableFormat.HUDI, table.getReadSchema()));
-    return hmsTable;
   }
 
   @Override
