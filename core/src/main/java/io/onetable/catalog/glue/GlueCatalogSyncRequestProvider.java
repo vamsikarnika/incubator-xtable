@@ -51,9 +51,6 @@ abstract class GlueCatalogSyncRequestProvider {
       GlueSchemaExtractor schemaExtractor,
       Configuration configuration) {
     switch (tableFormat) {
-      case TableFormat.ICEBERG:
-        return new IcebergGlueCatalogSyncRequestProvider(
-            glueCatalogConfig, schemaExtractor, configuration);
       case TableFormat.HUDI:
         return new HudiGlueCatalogSyncRequestProvider(
             glueCatalogConfig, glueClient, schemaExtractor, configuration);
