@@ -30,4 +30,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 public class HMSCatalogConfig {
   @JsonProperty("externalCatalog.hms.serverUrl")
   private String serverUrl;
+
+  @JsonProperty("externalCatalog.hms.schema_string_length_thresh")
+  private int schemaLengthThreshold = 4000;
 }

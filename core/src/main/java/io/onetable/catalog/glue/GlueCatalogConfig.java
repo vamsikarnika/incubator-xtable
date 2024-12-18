@@ -50,4 +50,7 @@ public class GlueCatalogConfig {
   // TODO: Add lake formation support for Iceberg<>Glue sync
   // [https://app.clickup.com/t/18029943/ENG-16363]
   private boolean lakeFormationEnabled;
+
+  @JsonProperty("externalCatalog.hms.schema_string_length_thresh")
+  private int schemaLengthThreshold = 4000;
 }
