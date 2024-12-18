@@ -55,7 +55,6 @@ import org.apache.hudi.common.table.timeline.HoodieTimeline;
 import org.apache.hudi.common.util.CollectionUtils;
 import org.apache.hudi.common.util.ConfigUtils;
 import org.apache.hudi.common.util.Option;
-import org.apache.hudi.hive.MultiPartKeysValueExtractor;
 import org.apache.hudi.sync.common.model.PartitionValueExtractor;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -95,9 +94,8 @@ public class HudiHMSCatalogSyncRequestProvider extends HMSCatalogSyncRequestProv
     this.metaStoreClient = metaStoreClient;
     this.schemaExtractor = schemaExtractor;
     this.configuration = configuration;
-    // TODO - fetch this class name from hms catalog configs
     this.partitionValueExtractor =
-        ReflectionUtils.createInstanceOfClass(MultiPartKeysValueExtractor.class.getName());
+        ReflectionUtils.createInstanceOfClass(hmsCatalogConfig.getPartitionExtractorClass());
   }
 
   @VisibleForTesting

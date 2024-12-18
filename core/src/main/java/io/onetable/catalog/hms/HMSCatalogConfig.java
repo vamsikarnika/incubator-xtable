@@ -22,6 +22,8 @@ import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.ToString;
 
+import org.apache.hudi.hive.MultiPartKeysValueExtractor;
+
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 @Getter
@@ -33,4 +35,7 @@ public class HMSCatalogConfig {
 
   @JsonProperty("externalCatalog.hms.schema_string_length_thresh")
   private int schemaLengthThreshold = 4000;
+
+  @JsonProperty("externalCatalog.hms.partition_extractor_class")
+  private String partitionExtractorClass = MultiPartKeysValueExtractor.class.getName();
 }

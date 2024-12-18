@@ -46,7 +46,6 @@ import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.common.util.CollectionUtils;
 import org.apache.hudi.common.util.ConfigUtils;
 import org.apache.hudi.common.util.Option;
-import org.apache.hudi.hive.MultiPartKeysValueExtractor;
 import org.apache.hudi.sync.common.model.PartitionValueExtractor;
 
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -108,9 +107,8 @@ public class HudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncRequestPr
     this.configuration = configuration;
     this.schemaExtractor = schemaExtractor;
     this.hudiTableManager = HudiTableManager.of(configuration);
-    // TODO : get default partition value extractor from configs
     this.partitionValueExtractor =
-        ReflectionUtils.createInstanceOfClass(MultiPartKeysValueExtractor.class.getName());
+        ReflectionUtils.createInstanceOfClass(glueCatalogConfig.getPartitionExtractorClass());
   }
 
   @VisibleForTesting
