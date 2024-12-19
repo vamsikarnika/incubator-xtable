@@ -18,7 +18,9 @@
  
 package io.onetable.catalog;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import io.onetable.catalog.ExternalCatalogConfig.TableIdentifier;
 
@@ -44,7 +46,7 @@ public interface CatalogPartitionSyncOperations {
    * @param tableIdentifier an object identifying the table where partitions are to be added.
    * @param partitionsToAdd a list of partition paths (as strings) to be added to the table.
    */
-  void addPartitionsToTable(TableIdentifier tableIdentifier, List<String> partitionsToAdd);
+  void addPartitionsToTable(TableIdentifier tableIdentifier, List<Partition> partitionsToAdd);
 
   /**
    * Updates the specified partitions for a table in the catalog.
@@ -52,7 +54,7 @@ public interface CatalogPartitionSyncOperations {
    * @param tableIdentifier an object identifying the table whose partitions are to be updated.
    * @param changedPartitions a list of partition paths (as strings) to be updated in the table.
    */
-  void updatePartitionsToTable(TableIdentifier tableIdentifier, List<String> changedPartitions);
+  void updatePartitionsToTable(TableIdentifier tableIdentifier, List<Partition> changedPartitions);
 
   /**
    * Removes the specified partitions from a table in the catalog.
@@ -60,5 +62,36 @@ public interface CatalogPartitionSyncOperations {
    * @param tableIdentifier an object identifying the table from which partitions are to be dropped.
    * @param partitionsToDrop a list of partition paths (as strings) to be removed from the table.
    */
-  void dropPartitions(TableIdentifier tableIdentifier, List<String> partitionsToDrop);
+  void dropPartitions(TableIdentifier tableIdentifier, List<Partition> partitionsToDrop);
+
+  /**
+   * Retrieves the properties indicating the last synchronization state for the given table.
+   *
+   * <p>This method provides a default implementation that returns an empty map. Implementations of
+   * this interface can override it to fetch the actual last synced properties from a catalog or a
+   * database.
+   *
+   * @param tableIdentifier the identifier of the table whose last synced properties are to be
+   *     fetched.
+   * @param lastSyncedKeys a list of keys representing the specific properties to retrieve.
+   * @return a map of key-value pairs representing the last synchronization properties.
+   */
+  default Map<String, String> getLastTimeSyncedProperties(
+      TableIdentifier tableIdentifier, List<String> lastSyncedKeys) {
+    return new HashMap<>();
+  }
+
+  /**
+   * Updates the properties indicating the last synchronization state for the given table.
+   *
+   * <p>This method provides a default implementation that performs no operation. Implementations of
+   * this interface can override it to update the last synced properties in a catalog or a database.
+   *
+   * @param tableIdentifier the identifier of the table whose last synced properties are to be
+   *     updated.
+   * @param lastTimeSyncedProperties a map of key-value pairs representing the updated last
+   *     synchronization properties.
+   */
+  default void updateLastTimeSyncedProperties(
+      TableIdentifier tableIdentifier, Map<String, String> lastTimeSyncedProperties) {}
 }

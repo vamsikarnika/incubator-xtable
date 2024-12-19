@@ -41,9 +41,6 @@ public abstract class HMSCatalogSyncRequestProvider {
   abstract Table getUpdateTableInput(
       OneTable table, Table catalogTable, ExternalCatalogConfig.TableIdentifier tableIdentifier);
 
-  protected void syncPartitions(
-      OneTable oneTable, ExternalCatalogConfig.TableIdentifier tableIdentifier) {}
-
   static HMSCatalogSyncRequestProvider getInstance(
       String tableFormat,
       IMetaStoreClient metaStoreClient,

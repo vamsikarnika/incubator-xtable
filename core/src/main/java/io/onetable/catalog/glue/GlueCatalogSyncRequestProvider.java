@@ -42,8 +42,6 @@ abstract class GlueCatalogSyncRequestProvider {
   abstract TableInput getUpdateTableInput(
       OneTable table, Table catalogTable, TableIdentifier tableIdentifier);
 
-  protected void syncPartitions(OneTable oneTable, TableIdentifier tableIdentifier) {}
-
   static GlueCatalogSyncRequestProvider getInstance(
       String tableFormat,
       GlueClient glueClient,
