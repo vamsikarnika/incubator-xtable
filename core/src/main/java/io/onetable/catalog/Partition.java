@@ -20,22 +20,29 @@ package io.onetable.catalog;
 
 import java.util.List;
 
+import lombok.Getter;
+
+/**
+ * This class is designed to encapsulate a set of partition values and the corresponding storage
+ * location where the data for this partition is stored.
+ */
+@Getter
 public class Partition {
 
+  /**
+   * A list of values defining this partition. For example, these values might correspond to
+   * partition keys in a dataset (e.g., year, month, day).
+   */
   private final List<String> values;
 
+  /**
+   * The storage location associated with this partition. Typically, this would be a path in a file
+   * system or object store.
+   */
   private final String storageLocation;
 
   public Partition(List<String> values, String storageLocation) {
     this.values = values;
     this.storageLocation = storageLocation;
-  }
-
-  public List<String> getValues() {
-    return values;
-  }
-
-  public String getStorageLocation() {
-    return storageLocation;
   }
 }
