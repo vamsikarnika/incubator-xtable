@@ -59,6 +59,6 @@ public class GlueCatalogConfig {
   @JsonProperty("externalCatalog.glue.partition_extractor_class")
   private String partitionExtractorClass = MultiPartKeysValueExtractor.class.getName();
 
-  @JsonProperty("externalCatalog.glue.partition_extractor_class")
+  @JsonProperty("externalCatalog.glue.max_partitions_per_request")
   private int maxPartitionsPerRequest = 1000;
 }

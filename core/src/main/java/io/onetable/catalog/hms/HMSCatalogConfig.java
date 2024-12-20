@@ -39,6 +39,6 @@ public class HMSCatalogConfig {
   @JsonProperty("externalCatalog.hms.partition_extractor_class")
   private String partitionExtractorClass = MultiPartKeysValueExtractor.class.getName();
 
-  @JsonProperty("externalCatalog.hms.partition_extractor_class")
+  @JsonProperty("externalCatalog.hms.max_partitions_per_request")
   private int maxPartitionsPerRequest = 1000;
 }
