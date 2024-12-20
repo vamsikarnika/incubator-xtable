@@ -15,27 +15,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
+ 
 package io.onetable.catalog.hms;
-
-import io.onetable.catalog.CatalogPartitionSyncOperations;
-import io.onetable.catalog.Partition;
-import io.onetable.exception.CatalogSyncException;
-import lombok.SneakyThrows;
-import org.apache.hadoop.hive.metastore.api.SerDeInfo;
-import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
-import org.apache.hadoop.hive.metastore.api.Table;
-import org.apache.thrift.TException;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.junit.jupiter.MockitoExtension;
-
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -52,13 +33,35 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+import lombok.SneakyThrows;
+
+import org.apache.hadoop.hive.metastore.api.SerDeInfo;
+import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
+import org.apache.hadoop.hive.metastore.api.Table;
+import org.apache.thrift.TException;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import io.onetable.catalog.CatalogPartitionSyncOperations;
+import io.onetable.catalog.Partition;
+import io.onetable.exception.CatalogSyncException;
+
 @ExtendWith(MockitoExtension.class)
-public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequestProviderTestBase{
+public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequestProviderTestBase {
 
-  private CatalogPartitionSyncOperations mockHMSCatalogPartitionSyncOperations;
+  private CatalogPartitionSyncOperations mockHMSPartitionSyncOperations;
 
-  void setupCommonMocks(){
-    mockHMSCatalogPartitionSyncOperations = new HMSCatalogPartitionSyncOperations(mockMetaStoreClient);
+  void setupCommonMocks() {
+    mockHMSPartitionSyncOperations =
+        new HMSCatalogPartitionSyncOperations(mockMetaStoreClient, mockCatalogConfig);
   }
 
   @SneakyThrows
@@ -80,9 +83,15 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     sd2.setLocation("location2");
     hivePartition2.setSd(sd2);
 
-    List<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions = Arrays.asList(hivePartition1, hivePartition2);
-    when(mockMetaStoreClient.listPartitions(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName(), (short) -1)).thenReturn(hivePartitions);
-    List<Partition> partitions = mockHMSCatalogPartitionSyncOperations.getAllPartitions(TEST_TABLE_IDENTIFIER);
+    List<org.apache.hadoop.hive.metastore.api.Partition> hivePartitions =
+        Arrays.asList(hivePartition1, hivePartition2);
+    when(mockMetaStoreClient.listPartitions(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(),
+            TEST_TABLE_IDENTIFIER.getTableName(),
+            (short) -1))
+        .thenReturn(hivePartitions);
+    List<Partition> partitions =
+        mockHMSPartitionSyncOperations.getAllPartitions(TEST_TABLE_IDENTIFIER);
 
     assertEquals(2, partitions.size());
     assertEquals("location1", partitions.get(0).getStorageLocation());
@@ -92,7 +101,11 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     assertEquals(1, partitions.get(1).getValues().size());
     assertEquals("value2", partitions.get(1).getValues().get(0));
 
-    verify(mockMetaStoreClient, times(1)).listPartitions(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName(), (short) -1);
+    verify(mockMetaStoreClient, times(1))
+        .listPartitions(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(),
+            TEST_TABLE_IDENTIFIER.getTableName(),
+            (short) -1);
   }
 
   @Test
@@ -108,13 +121,16 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     tableSd.setOutputFormat("outputFormat");
     tableSd.setSerdeInfo(new SerDeInfo());
 
-    org.apache.hadoop.hive.metastore.api.Table table = new org.apache.hadoop.hive.metastore.api.Table();
+    org.apache.hadoop.hive.metastore.api.Table table =
+        new org.apache.hadoop.hive.metastore.api.Table();
     table.setSd(tableSd);
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName())).thenReturn(table);
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+        .thenReturn(table);
 
     // Execute the method
-    mockHMSCatalogPartitionSyncOperations.addPartitionsToTable(TEST_TABLE_IDENTIFIER, partitionsToAdd);
+    mockHMSPartitionSyncOperations.addPartitionsToTable(TEST_TABLE_IDENTIFIER, partitionsToAdd);
 
     // Verify behavior
     ArgumentCaptor<List<org.apache.hadoop.hive.metastore.api.Partition>> partitionCaptor =
@@ -124,7 +140,8 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
         .add_partitions(partitionCaptor.capture(), eq(true), eq(false));
 
     // Validate the captured partitions
-    List<org.apache.hadoop.hive.metastore.api.Partition> capturedPartitions = partitionCaptor.getValue();
+    List<org.apache.hadoop.hive.metastore.api.Partition> capturedPartitions =
+        partitionCaptor.getValue();
     assertEquals(2, capturedPartitions.size());
 
     org.apache.hadoop.hive.metastore.api.Partition capturedPartition1 = capturedPartitions.get(0);
@@ -139,20 +156,24 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
   @Test
   void testAddPartitionsToTableThrowsException() throws Exception {
     setupCommonMocks();
-    List<Partition> partitionsToAdd = Collections.singletonList(
-        new Partition(Collections.singletonList("value1"), "location1"));
+    List<Partition> partitionsToAdd =
+        Collections.singletonList(new Partition(Collections.singletonList("value1"), "location1"));
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
         .thenThrow(new TException("Test exception"));
 
     // Execute and validate exception
-    CatalogSyncException exception = assertThrows(
-        CatalogSyncException.class,
-        () -> mockHMSCatalogPartitionSyncOperations.addPartitionsToTable(TEST_TABLE_IDENTIFIER, partitionsToAdd)
-    );
+    CatalogSyncException exception =
+        assertThrows(
+            CatalogSyncException.class,
+            () ->
+                mockHMSPartitionSyncOperations.addPartitionsToTable(
+                    TEST_TABLE_IDENTIFIER, partitionsToAdd));
 
     assertInstanceOf(TException.class, exception.getCause());
-    verify(mockMetaStoreClient, times(1)).getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName());
+    verify(mockMetaStoreClient, times(1))
+        .getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName());
     verify(mockMetaStoreClient, never()).add_partitions(anyList(), anyBoolean(), anyBoolean());
   }
 
@@ -173,10 +194,13 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     Table table = new Table();
     table.setSd(tableSd);
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName())).thenReturn(table);
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+        .thenReturn(table);
 
     // Execute the method
-    mockHMSCatalogPartitionSyncOperations.updatePartitionsToTable(TEST_TABLE_IDENTIFIER, changedPartitions);
+    mockHMSPartitionSyncOperations.updatePartitionsToTable(
+        TEST_TABLE_IDENTIFIER, changedPartitions);
 
     // Capture calls to dropPartition and add_partition
     ArgumentCaptor<List<String>> dropPartitionCaptor = ArgumentCaptor.forClass(List.class);
@@ -184,7 +208,11 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
         ArgumentCaptor.forClass(org.apache.hadoop.hive.metastore.api.Partition.class);
 
     verify(mockMetaStoreClient, times(2))
-        .dropPartition(eq(TEST_TABLE_IDENTIFIER.getDatabaseName()), eq(TEST_TABLE_IDENTIFIER.getTableName()), dropPartitionCaptor.capture(), eq(false));
+        .dropPartition(
+            eq(TEST_TABLE_IDENTIFIER.getDatabaseName()),
+            eq(TEST_TABLE_IDENTIFIER.getTableName()),
+            dropPartitionCaptor.capture(),
+            eq(false));
     verify(mockMetaStoreClient, times(2)).add_partition(addPartitionCaptor.capture());
 
     // Validate the dropPartition calls
@@ -193,7 +221,8 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     assertEquals(changedPartition2.getValues(), droppedPartitionValues.get(1));
 
     // Validate the add_partition calls
-    List<org.apache.hadoop.hive.metastore.api.Partition> addedPartitions = addPartitionCaptor.getAllValues();
+    List<org.apache.hadoop.hive.metastore.api.Partition> addedPartitions =
+        addPartitionCaptor.getAllValues();
     assertEquals(2, addedPartitions.size());
 
     org.apache.hadoop.hive.metastore.api.Partition addedPartition1 = addedPartitions.get(0);
@@ -210,22 +239,24 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     setupCommonMocks();
     Partition changedPartition = new Partition(Collections.singletonList("value1"), "location1");
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
         .thenThrow(new TException("Test exception"));
 
     // Execute and validate exception
-    CatalogSyncException exception = assertThrows(
-        CatalogSyncException.class,
-        () -> mockHMSCatalogPartitionSyncOperations.updatePartitionsToTable(
-            TEST_TABLE_IDENTIFIER,
-            Collections.singletonList(changedPartition)
-        )
-    );
+    CatalogSyncException exception =
+        assertThrows(
+            CatalogSyncException.class,
+            () ->
+                mockHMSPartitionSyncOperations.updatePartitionsToTable(
+                    TEST_TABLE_IDENTIFIER, Collections.singletonList(changedPartition)));
 
     assertInstanceOf(TException.class, exception.getCause());
 
-    verify(mockMetaStoreClient, times(1)).getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName());
-    verify(mockMetaStoreClient, never()).dropPartition(anyString(), anyString(), anyList(), anyBoolean());
+    verify(mockMetaStoreClient, times(1))
+        .getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName());
+    verify(mockMetaStoreClient, never())
+        .dropPartition(anyString(), anyString(), anyList(), anyBoolean());
     verify(mockMetaStoreClient, never()).add_partition(any());
   }
 
@@ -238,7 +269,7 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     List<Partition> partitionsToDrop = Arrays.asList(partition1, partition2);
 
     // Execute the method
-    mockHMSCatalogPartitionSyncOperations.dropPartitions(TEST_TABLE_IDENTIFIER, partitionsToDrop);
+    mockHMSPartitionSyncOperations.dropPartitions(TEST_TABLE_IDENTIFIER, partitionsToDrop);
 
     // Capture calls to dropPartition
     ArgumentCaptor<List<String>> partitionValuesCaptor = ArgumentCaptor.forClass(List.class);
@@ -248,8 +279,7 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
             eq(TEST_TABLE_IDENTIFIER.getDatabaseName()),
             eq(TEST_TABLE_IDENTIFIER.getTableName()),
             partitionValuesCaptor.capture(),
-            eq(false)
-        );
+            eq(false));
 
     // Validate captured arguments
     List<List<String>> capturedPartitionValues = partitionValuesCaptor.getAllValues();
@@ -263,7 +293,7 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     setupCommonMocks();
     List<Partition> partitionsToDrop = Collections.emptyList();
 
-    mockHMSCatalogPartitionSyncOperations.dropPartitions(TEST_TABLE_IDENTIFIER, partitionsToDrop);
+    mockHMSPartitionSyncOperations.dropPartitions(TEST_TABLE_IDENTIFIER, partitionsToDrop);
 
     // Verify no calls to dropPartition
     verify(mockMetaStoreClient, never())
@@ -279,19 +309,29 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
 
     doThrow(new TException("Test exception"))
         .when(mockMetaStoreClient)
-        .dropPartition(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName(), partition1.getValues(), false);
+        .dropPartition(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(),
+            TEST_TABLE_IDENTIFIER.getTableName(),
+            partition1.getValues(),
+            false);
 
     // Execute and validate exception
-    CatalogSyncException exception = assertThrows(
-        CatalogSyncException.class,
-        () -> mockHMSCatalogPartitionSyncOperations.dropPartitions(TEST_TABLE_IDENTIFIER, partitionsToDrop)
-    );
+    CatalogSyncException exception =
+        assertThrows(
+            CatalogSyncException.class,
+            () ->
+                mockHMSPartitionSyncOperations.dropPartitions(
+                    TEST_TABLE_IDENTIFIER, partitionsToDrop));
 
     assertInstanceOf(TException.class, exception.getCause());
 
-    // Verify behavior
+    // Verify dropPartition call is made once
     verify(mockMetaStoreClient, times(1))
-        .dropPartition(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName(), partition1.getValues(), false);
+        .dropPartition(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(),
+            TEST_TABLE_IDENTIFIER.getTableName(),
+            partition1.getValues(),
+            false);
   }
 
   @Test
@@ -308,11 +348,14 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     Table mockTable = new Table();
     mockTable.setParameters(mockParameters);
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName())).thenReturn(mockTable);
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+        .thenReturn(mockTable);
 
     // Execute the method
     Map<String, String> result =
-        mockHMSCatalogPartitionSyncOperations.getLastTimeSyncedProperties(TEST_TABLE_IDENTIFIER, lastSyncedKeys);
+        mockHMSPartitionSyncOperations.getLastTimeSyncedProperties(
+            TEST_TABLE_IDENTIFIER, lastSyncedKeys);
 
     // Validate the result
     assertEquals(2, result.size());
@@ -327,18 +370,18 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
 
     List<String> lastSyncedKeys = Arrays.asList("key1", "key2");
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
         .thenThrow(new TException("Test exception"));
 
-    CatalogSyncException exception = assertThrows(
-        CatalogSyncException.class,
-        () -> mockHMSCatalogPartitionSyncOperations.getLastTimeSyncedProperties(TEST_TABLE_IDENTIFIER, lastSyncedKeys)
-    );
+    CatalogSyncException exception =
+        assertThrows(
+            CatalogSyncException.class,
+            () ->
+                mockHMSPartitionSyncOperations.getLastTimeSyncedProperties(
+                    TEST_TABLE_IDENTIFIER, lastSyncedKeys));
 
     assertInstanceOf(TException.class, exception.getCause());
-
-    // Verify behavior
-    verify(mockMetaStoreClient, times(1)).getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName());
   }
 
   @Test
@@ -355,14 +398,20 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     Table mockTable = new Table();
     mockTable.setParameters(existingParameters);
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName())).thenReturn(mockTable);
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+        .thenReturn(mockTable);
 
     // Execute the method
-    mockHMSCatalogPartitionSyncOperations.updateLastTimeSyncedProperties(TEST_TABLE_IDENTIFIER, lastTimeSyncedProperties);
+    mockHMSPartitionSyncOperations.updateLastTimeSyncedProperties(
+        TEST_TABLE_IDENTIFIER, lastTimeSyncedProperties);
 
     // Verify behavior
     verify(mockMetaStoreClient, times(1))
-        .alter_table(eq(TEST_TABLE_IDENTIFIER.getDatabaseName()), eq(TEST_TABLE_IDENTIFIER.getTableName()), eq(mockTable));
+        .alter_table(
+            eq(TEST_TABLE_IDENTIFIER.getDatabaseName()),
+            eq(TEST_TABLE_IDENTIFIER.getTableName()),
+            eq(mockTable));
 
     // Validate updated parameters
     Map<String, String> updatedParameters = mockTable.getParameters();
@@ -380,7 +429,8 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
     Map<String, String> lastTimeSyncedProperties = Collections.emptyMap();
 
     // Execute the method
-    mockHMSCatalogPartitionSyncOperations.updateLastTimeSyncedProperties(TEST_TABLE_IDENTIFIER, lastTimeSyncedProperties);
+    mockHMSPartitionSyncOperations.updateLastTimeSyncedProperties(
+        TEST_TABLE_IDENTIFIER, lastTimeSyncedProperties);
 
     // Verify no calls to MetaStoreClient
     verify(mockMetaStoreClient, never()).getTable(anyString(), anyString());
@@ -391,22 +441,25 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
   void testUpdateLastTimeSyncedPropertiesThrowsException() throws Exception {
     setupCommonMocks();
 
-    Map<String, String> lastTimeSyncedProperties = Collections.singletonMap(
-        "last_synced_time", "2023-12-01T12:00:00Z"
-    );
+    Map<String, String> lastTimeSyncedProperties =
+        Collections.singletonMap("last_synced_time", "2023-12-01T12:00:00Z");
 
-    when(mockMetaStoreClient.getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
+    when(mockMetaStoreClient.getTable(
+            TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName()))
         .thenThrow(new TException("Test exception"));
 
-    CatalogSyncException exception = assertThrows(
-        CatalogSyncException.class,
-        () -> mockHMSCatalogPartitionSyncOperations.updateLastTimeSyncedProperties(TEST_TABLE_IDENTIFIER, lastTimeSyncedProperties)
-    );
+    CatalogSyncException exception =
+        assertThrows(
+            CatalogSyncException.class,
+            () ->
+                mockHMSPartitionSyncOperations.updateLastTimeSyncedProperties(
+                    TEST_TABLE_IDENTIFIER, lastTimeSyncedProperties));
 
     assertInstanceOf(TException.class, exception.getCause());
 
-    // Verify behavior
-    verify(mockMetaStoreClient, times(1)).getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName());
+    // Verify no alter table calls are made
+    verify(mockMetaStoreClient, times(1))
+        .getTable(TEST_TABLE_IDENTIFIER.getDatabaseName(), TEST_TABLE_IDENTIFIER.getTableName());
     verify(mockMetaStoreClient, never()).alter_table(anyString(), anyString(), any());
   }
 }

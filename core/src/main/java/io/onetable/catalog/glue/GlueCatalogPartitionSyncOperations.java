@@ -135,9 +135,9 @@ public class GlueCatalogPartitionSyncOperations implements CatalogPartitionSyncO
 
       List<BatchCreatePartitionResponse> responses = new ArrayList<>();
 
-      // ToDo - create a config in glueCatalogConfig for MAX_PARTITIONS_PER_REQUEST, for now taking
-      // default value 1000
-      for (List<PartitionInput> batch : CollectionUtils.batches(partitionInputs, 1000)) {
+      for (List<PartitionInput> batch :
+          CollectionUtils.batches(
+              partitionInputs, glueCatalogConfig.getMaxPartitionsPerRequest())) {
         BatchCreatePartitionRequest request =
             BatchCreatePartitionRequest.builder()
                 .databaseName(tableIdentifier.getDatabaseName())
@@ -197,10 +197,9 @@ public class GlueCatalogPartitionSyncOperations implements CatalogPartitionSyncO
               .collect(Collectors.toList());
 
       List<BatchUpdatePartitionResponse> responses = new ArrayList<>();
-      // ToDo - create a config in glueCatalogConfig for MAX_PARTITIONS_PER_REQUEST, for now taking
-      // default value 1000
       for (List<BatchUpdatePartitionRequestEntry> batch :
-          CollectionUtils.batches(updatePartitionEntries, 1000)) {
+          CollectionUtils.batches(
+              updatePartitionEntries, glueCatalogConfig.getMaxPartitionsPerRequest())) {
         BatchUpdatePartitionRequest request =
             BatchUpdatePartitionRequest.builder()
                 .databaseName(tableIdentifier.getDatabaseName())
@@ -233,9 +232,10 @@ public class GlueCatalogPartitionSyncOperations implements CatalogPartitionSyncO
     log.info("Drop " + partitionsToDrop.size() + "partition(s) in table " + tableIdentifier);
     try {
       List<BatchDeletePartitionResponse> responses = new ArrayList<>();
-      // ToDo - create a config in glueCatalogConfig for MAX_PARTITIONS_PER_REQUEST, for now taking
-      // default value 1000
-      for (List<Partition> batch : CollectionUtils.batches(partitionsToDrop, 1000)) {
+
+      for (List<Partition> batch :
+          CollectionUtils.batches(
+              partitionsToDrop, glueCatalogConfig.getMaxPartitionsPerRequest())) {
         List<PartitionValueList> partitionValueLists =
             batch.stream()
                 .map(

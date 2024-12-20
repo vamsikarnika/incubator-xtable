@@ -42,9 +42,12 @@ import io.onetable.exception.CatalogSyncException;
 public class HMSCatalogPartitionSyncOperations implements CatalogPartitionSyncOperations {
 
   private final IMetaStoreClient metaStoreClient;
+  private final HMSCatalogConfig catalogConfig;
 
-  public HMSCatalogPartitionSyncOperations(IMetaStoreClient metaStoreClient) {
+  public HMSCatalogPartitionSyncOperations(
+      IMetaStoreClient metaStoreClient, HMSCatalogConfig hmsCatalogConfig) {
     this.metaStoreClient = metaStoreClient;
+    this.catalogConfig = hmsCatalogConfig;
   }
 
   @Override
@@ -75,9 +78,8 @@ public class HMSCatalogPartitionSyncOperations implements CatalogPartitionSyncOp
           metaStoreClient
               .getTable(tableIdentifier.getDatabaseName(), tableIdentifier.getTableName())
               .getSd();
-      int batchSyncPartitionNum = 1000;
       for (List<Partition> batch :
-          CollectionUtils.batches(partitionsToAdd, batchSyncPartitionNum)) {
+          CollectionUtils.batches(partitionsToAdd, catalogConfig.getMaxPartitionsPerRequest())) {
         List<org.apache.hadoop.hive.metastore.api.Partition> partitionList = new ArrayList<>();
         batch.forEach(
             partition -> {
