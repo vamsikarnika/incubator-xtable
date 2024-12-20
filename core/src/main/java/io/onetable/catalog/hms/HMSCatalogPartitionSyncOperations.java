@@ -75,8 +75,6 @@ public class HMSCatalogPartitionSyncOperations implements CatalogPartitionSyncOp
           metaStoreClient
               .getTable(tableIdentifier.getDatabaseName(), tableIdentifier.getTableName())
               .getSd();
-      String basePath = sd.getLocation();
-      // int batchSyncPartitionNum = syncConfig.getIntOrDefault(HIVE_BATCH_SYNC_PARTITION_NUM);
       int batchSyncPartitionNum = 1000;
       for (List<Partition> batch :
           CollectionUtils.batches(partitionsToAdd, batchSyncPartitionNum)) {
