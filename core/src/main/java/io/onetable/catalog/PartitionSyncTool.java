@@ -30,6 +30,8 @@ public interface PartitionSyncTool {
   /**
    * Syncs all partitions on storage to the catalog.
    *
+   * @param oneTable The object representing the table whose partitions are being synced. This
+   *     object contains necessary details to perform the sync operation.
    * @param tableIdentifier The table in the catalog.
    * @return {@code true} if one or more partition(s) are changed in the catalog; {@code false}
    *     otherwise.
