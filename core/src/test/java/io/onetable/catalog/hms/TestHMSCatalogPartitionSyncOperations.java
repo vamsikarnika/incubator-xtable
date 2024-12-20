@@ -111,6 +111,7 @@ public class TestHMSCatalogPartitionSyncOperations extends HMSCatalogSyncRequest
   @Test
   void testAddPartitionsToTableSuccess() throws Exception {
     setupCommonMocks();
+    when(mockCatalogConfig.getMaxPartitionsPerRequest()).thenReturn(100);
     Partition partition1 = new Partition(Collections.singletonList("value1"), "location1");
     Partition partition2 = new Partition(Collections.singletonList("value2"), "location2");
     List<Partition> partitionsToAdd = Arrays.asList(partition1, partition2);

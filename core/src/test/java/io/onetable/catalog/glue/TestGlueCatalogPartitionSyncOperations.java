@@ -158,6 +158,7 @@ public class TestGlueCatalogPartitionSyncOperations extends GlueCatalogSyncReque
             .build();
     GetTableResponse tableResponse = GetTableResponse.builder().table(mockTable).build();
     when(mockGlueClient.getTable(any(GetTableRequest.class))).thenReturn(tableResponse);
+    when(mockCatalogConfig.getMaxPartitionsPerRequest()).thenReturn(100);
 
     // Mock glueClient to return a valid response for batchCreatePartition
     BatchCreatePartitionResponse mockResponse = mock(BatchCreatePartitionResponse.class);
@@ -192,6 +193,7 @@ public class TestGlueCatalogPartitionSyncOperations extends GlueCatalogSyncReque
     when(mockTable.storageDescriptor()).thenReturn(mockSd);
     GetTableResponse tableResponse = GetTableResponse.builder().table(mockTable).build();
     when(mockGlueClient.getTable(any(GetTableRequest.class))).thenReturn(tableResponse);
+    when(mockCatalogConfig.getMaxPartitionsPerRequest()).thenReturn(100);
 
     // Mock glueClient to throw an exception when batchCreatePartition is called
     when(mockGlueClient.batchCreatePartition(any(BatchCreatePartitionRequest.class)))
@@ -226,6 +228,7 @@ public class TestGlueCatalogPartitionSyncOperations extends GlueCatalogSyncReque
             .build();
     GetTableResponse tableResponse = GetTableResponse.builder().table(mockTable).build();
     when(mockGlueClient.getTable(any(GetTableRequest.class))).thenReturn(tableResponse);
+    when(mockCatalogConfig.getMaxPartitionsPerRequest()).thenReturn(100);
 
     // Prepare test partition to be updated
     io.onetable.catalog.Partition partitionToUpdate =
@@ -270,6 +273,7 @@ public class TestGlueCatalogPartitionSyncOperations extends GlueCatalogSyncReque
             .build();
     GetTableResponse tableResponse = GetTableResponse.builder().table(mockTable).build();
     when(mockGlueClient.getTable(any(GetTableRequest.class))).thenReturn(tableResponse);
+    when(mockCatalogConfig.getMaxPartitionsPerRequest()).thenReturn(100);
 
     // Mock glueClient to throw an exception
     when(mockGlueClient.batchUpdatePartition(any(BatchUpdatePartitionRequest.class)))
@@ -303,8 +307,8 @@ public class TestGlueCatalogPartitionSyncOperations extends GlueCatalogSyncReque
     BatchDeletePartitionResponse mockResponse = mock(BatchDeletePartitionResponse.class);
     when(mockGlueClient.batchDeletePartition(any(BatchDeletePartitionRequest.class)))
         .thenReturn(mockResponse);
+    when(mockCatalogConfig.getMaxPartitionsPerRequest()).thenReturn(100);
 
-    // Execute the method
     mockGluePartitionSyncOperations.dropPartitions(
         TEST_TABLE_IDENTIFIER, Collections.singletonList(partitionToDrop));
 
@@ -329,8 +333,8 @@ public class TestGlueCatalogPartitionSyncOperations extends GlueCatalogSyncReque
     // Mock glueClient to throw an exception during batchDeletePartition
     when(mockGlueClient.batchDeletePartition(any(BatchDeletePartitionRequest.class)))
         .thenThrow(new RuntimeException("Test exception"));
+    when(mockCatalogConfig.getMaxPartitionsPerRequest()).thenReturn(100);
 
-    // Execute and validate exception
     CatalogSyncException exception =
         assertThrows(
             CatalogSyncException.class,
