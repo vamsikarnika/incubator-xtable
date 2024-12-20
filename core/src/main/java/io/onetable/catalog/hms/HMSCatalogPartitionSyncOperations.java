@@ -30,7 +30,6 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.util.CollectionUtils;
 import org.apache.hudi.exception.TableNotFoundException;
 
@@ -89,10 +88,8 @@ public class HMSCatalogPartitionSyncOperations implements CatalogPartitionSyncOp
               partitionSd.setInputFormat(sd.getInputFormat());
               partitionSd.setOutputFormat(sd.getOutputFormat());
               partitionSd.setSerdeInfo(sd.getSerdeInfo());
-              String fullPartitionPath =
-                  FSUtils.getPartitionPath(basePath, partition.getStorageLocation()).toString();
-              ;
-              partitionSd.setLocation(fullPartitionPath);
+
+              partitionSd.setLocation(partition.getStorageLocation());
               partitionList.add(
                   new org.apache.hadoop.hive.metastore.api.Partition(
                       partition.getValues(),

@@ -18,23 +18,25 @@
  
 package io.onetable.catalog.glue;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.mockito.Mockito.when;
+
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import org.apache.hudi.common.model.HoodieFileFormat;
 import org.apache.hudi.common.table.HoodieTableConfig;
 import org.apache.hudi.common.table.HoodieTableMetaClient;
 import org.apache.hudi.sync.common.model.PartitionValueExtractor;
 
-import io.onetable.hudi.HudiTableManager;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.mockito.junit.jupiter.MockitoExtension;
 import software.amazon.awssdk.services.glue.model.Table;
 import software.amazon.awssdk.services.glue.model.TableInput;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.mockito.Mockito.when;
+import io.onetable.hudi.HudiTableManager;
 
 @ExtendWith(MockitoExtension.class)
 public class TestHudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncRequestProviderTestBase {
@@ -107,77 +109,4 @@ public class TestHudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncReque
     assertNotNull(updatedTable.parameters());
     assertFalse(table.parameters().isEmpty());
   }
-
-//  TODO - Move these tests to TestHudiGlueCatalogPartitionSyncOperations
-//  @SneakyThrows
-//  @Test
-//  void testSyncAllPartitions() {
-//    setupCommonMocks();
-//    setupMetaClientMocks();
-//
-//    String partitionKey1 = "key1";
-//    ZonedDateTime zonedDateTime =
-//        Instant.ofEpochMilli(System.currentTimeMillis()).atZone(ZoneId.systemDefault());
-//    try (MockedStatic<ZonedDateTime> mockZonedDateTime = mockStatic(ZonedDateTime.class);
-//        MockedStatic<FSUtils> mockFSUtils = mockStatic(FSUtils.class)) {
-//      mockZonedDateTime.when(ZonedDateTime::now).thenReturn(zonedDateTime);
-//      List<String> mockedPartitions = Collections.singletonList(partitionKey1);
-//      mockFSUtils
-//          .when(
-//              () ->
-//                  FSUtils.getAllPartitionPaths(any(), eq(ONETABLE_BASE_PATH), eq(true), eq(false)))
-//          .thenReturn(mockedPartitions);
-//      mockFSUtils
-//          .when(() -> FSUtils.getPartitionPath(new Path(ONETABLE_BASE_PATH), partitionKey1))
-//          .thenReturn(new Path(ONETABLE_BASE_PATH + "/" + partitionKey1));
-//      when(mockMetaClient.getBasePathV2()).thenReturn(new Path(ONETABLE_BASE_PATH));
-//      when(mockPartitionValueExtractor.extractPartitionValuesInPath(partitionKey1))
-//          .thenReturn(Collections.singletonList(partitionKey1));
-//
-//      HoodieActiveTimeline mockTimeline = mock(HoodieActiveTimeline.class);
-//      HoodieInstant instant2 =
-//          new HoodieInstant(HoodieInstant.State.COMPLETED, "replacecommit", "101", "1100");
-//      when(mockTimeline.lastInstant()).thenReturn(Option.of(instant2));
-//      when(mockMetaClient.getActiveTimeline()).thenReturn(mockTimeline);
-//
-//      GetPartitionsResponse response =
-//          GetPartitionsResponse.builder().partitions(Collections.emptyList()).build();
-//
-//      when(mockGlueClient.getPartitions(any(GetPartitionsRequest.class))).thenReturn(response);
-//      TableInput glueTableInput =
-//          mockHudiGlueCatalogSyncRequestProvider.getCreateTableInput(
-//              TEST_ONETABLE_WITH_SCHEMA, TEST_TABLE_IDENTIFIER);
-//      Table glueTable =
-//          Table.builder()
-//              .name(glueTableInput.name())
-//              .parameters(glueTableInput.parameters())
-//              .storageDescriptor(glueTableInput.storageDescriptor())
-//              .partitionKeys(glueTableInput.partitionKeys())
-//              .build();
-//      GetTableResponse tableResponse = GetTableResponse.builder().table(glueTable).build();
-//      when(mockGlueClient.getTable(any(GetTableRequest.class))).thenReturn(tableResponse);
-//      when(mockGlueClient.batchCreatePartition(any(BatchCreatePartitionRequest.class)))
-//          .thenReturn(BatchCreatePartitionResponse.builder().build());
-//      mockHudiGlueCatalogSyncRequestProvider.syncPartitions(
-//          TEST_ONETABLE_WITH_SCHEMA, TEST_TABLE_IDENTIFIER);
-//
-//      verify(mockGlueClient, times(1)).batchCreatePartition(any(BatchCreatePartitionRequest.class));
-//
-//      verify(mockGlueClient, times(0)).batchDeletePartition(any(BatchDeletePartitionRequest.class));
-//
-//      ArgumentCaptor<UpdateTableRequest> updateTableRequestArgumentCaptor =
-//          ArgumentCaptor.forClass(UpdateTableRequest.class);
-//      verify(mockGlueClient, times(1)).updateTable(updateTableRequestArgumentCaptor.capture());
-//      assertNotNull(updateTableRequestArgumentCaptor.getValue());
-//      assertEquals(
-//          TEST_TABLE_IDENTIFIER.getDatabaseName(),
-//          updateTableRequestArgumentCaptor.getValue().databaseName());
-//      assertEquals(
-//          TEST_TABLE_IDENTIFIER.getTableName(),
-//          updateTableRequestArgumentCaptor.getValue().tableInput().name());
-//      Map<String, String> tableParameters =
-//          updateTableRequestArgumentCaptor.getValue().tableInput().parameters();
-//      assertEquals("101", tableParameters.get(LAST_COMMIT_TIME_SYNC));
-//    }
-//  }
 }

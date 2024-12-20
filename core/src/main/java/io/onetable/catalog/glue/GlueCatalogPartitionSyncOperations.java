@@ -29,7 +29,6 @@ import java.util.stream.Collectors;
 
 import lombok.extern.log4j.Log4j2;
 
-import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.util.CollectionUtils;
 
 import software.amazon.awssdk.services.glue.GlueClient;
@@ -121,16 +120,12 @@ public class GlueCatalogPartitionSyncOperations implements CatalogPartitionSyncO
     try {
       Table table = getTable(tableIdentifier);
       StorageDescriptor sd = table.storageDescriptor();
-      String basePath = sd.location();
       List<PartitionInput> partitionInputs =
           partitionsToAdd.stream()
               .map(
                   partition -> {
-                    String fullPartitionPath =
-                        FSUtils.getPartitionPath(basePath, partition.getStorageLocation())
-                            .toString();
                     StorageDescriptor partitionSD =
-                        sd.copy(copySd -> copySd.location(fullPartitionPath));
+                        sd.copy(copySd -> copySd.location(partition.getStorageLocation()));
                     return PartitionInput.builder()
                         .values(partition.getValues())
                         .storageDescriptor(partitionSD)
@@ -183,17 +178,12 @@ public class GlueCatalogPartitionSyncOperations implements CatalogPartitionSyncO
     try {
       Table table = getTable(tableIdentifier);
       StorageDescriptor sd = table.storageDescriptor();
-      String basePath = sd.location();
       List<BatchUpdatePartitionRequestEntry> updatePartitionEntries =
           changedPartitions.stream()
               .map(
                   partition -> {
-                    String fullPartitionPath =
-                        FSUtils.getPartitionPath(basePath, partition.getStorageLocation())
-                            .toString();
-
                     StorageDescriptor partitionSD =
-                        sd.copy(copySd -> copySd.location(fullPartitionPath));
+                        sd.copy(copySd -> copySd.location(partition.getStorageLocation()));
                     PartitionInput partitionInput =
                         PartitionInput.builder()
                             .values(partition.getValues())

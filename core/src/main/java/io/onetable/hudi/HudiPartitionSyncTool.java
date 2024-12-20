@@ -253,7 +253,7 @@ public class HudiPartitionSyncTool implements PartitionSyncTool {
             s ->
                 new Partition(
                     partitionValuesExtractor.extractPartitionValuesInPath(s.storagePartition),
-                    s.storagePartition))
+                    new Path(metaClient.getBasePathV2(), s.storagePartition).toUri().toString()))
         .collect(Collectors.toList());
   }
 
@@ -292,7 +292,6 @@ public class HudiPartitionSyncTool implements PartitionSyncTool {
    */
   private List<Partition> getTablePartitions(TableIdentifier tableIdentifier) {
     return catalogClient.getAllPartitions(tableIdentifier);
-    // ToDo - fetch table partitions based on the pushdown filter configuration
   }
 
   /**
