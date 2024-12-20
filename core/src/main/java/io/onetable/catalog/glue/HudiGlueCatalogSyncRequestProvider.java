@@ -48,7 +48,7 @@ import software.amazon.awssdk.services.glue.model.TableInput;
 
 import com.google.common.annotations.VisibleForTesting;
 
-import io.onetable.catalog.ExternalCatalogConfig;
+import io.onetable.catalog.ExternalCatalogConfig.TableIdentifier;
 import io.onetable.exception.CatalogSyncException;
 import io.onetable.hudi.HudiSparkDataSourceTableUtils;
 import io.onetable.hudi.HudiTableManager;
@@ -116,8 +116,7 @@ public class HudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncRequestPr
   }
 
   @Override
-  TableInput getCreateTableInput(
-      OneTable table, ExternalCatalogConfig.TableIdentifier tableIdentifier) {
+  TableInput getCreateTableInput(OneTable table, TableIdentifier tableIdentifier) {
     final Instant now = Instant.now();
     List<String> partitionFields =
         table.getPartitioningFields().stream()
@@ -135,8 +134,7 @@ public class HudiGlueCatalogSyncRequestProvider extends GlueCatalogSyncRequestPr
   }
 
   @Override
-  TableInput getUpdateTableInput(
-      OneTable table, Table glueTable, ExternalCatalogConfig.TableIdentifier tableIdentifier) {
+  TableInput getUpdateTableInput(OneTable table, Table glueTable, TableIdentifier tableIdentifier) {
     List<String> partitionFields =
         table.getPartitioningFields().stream()
             .map(field -> field.getSourceField().getName())

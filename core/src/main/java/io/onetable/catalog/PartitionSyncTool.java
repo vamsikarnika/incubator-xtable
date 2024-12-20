@@ -20,8 +20,20 @@ package io.onetable.catalog;
 
 import io.onetable.model.OneTable;
 
+/**
+ * Defines methods to synchronize all partitions from the storage to the catalog. Implementations of
+ * this interface will handle the logic for syncing partitions, including detecting partition
+ * changes and updating the catalog accordingly.
+ */
 public interface PartitionSyncTool {
 
+  /**
+   * Syncs all partitions on storage to the catalog.
+   *
+   * @param tableIdentifier The table in the catalog.
+   * @return {@code true} if one or more partition(s) are changed in the catalog; {@code false}
+   *     otherwise.
+   */
   public boolean syncPartitions(
       OneTable oneTable, ExternalCatalogConfig.TableIdentifier tableIdentifier);
 }

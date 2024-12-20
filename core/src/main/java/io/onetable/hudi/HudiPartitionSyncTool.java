@@ -44,7 +44,6 @@ import org.apache.hudi.hadoop.CachingPath;
 import org.apache.hudi.sync.common.model.PartitionValueExtractor;
 
 import io.onetable.catalog.CatalogPartitionSyncOperations;
-import io.onetable.catalog.ExternalCatalogConfig;
 import io.onetable.catalog.ExternalCatalogConfig.TableIdentifier;
 import io.onetable.catalog.Partition;
 import io.onetable.catalog.PartitionEvent;
@@ -82,8 +81,7 @@ public class HudiPartitionSyncTool implements PartitionSyncTool {
    * @return {@code true} if one or more partition(s) are changed in the metastore; {@code false}
    *     otherwise.
    */
-  public boolean syncAllPartitions(
-      OneTable oneTable, ExternalCatalogConfig.TableIdentifier tableIdentifier) {
+  private boolean syncAllPartitions(OneTable oneTable, TableIdentifier tableIdentifier) {
     try {
       if (oneTable.getPartitioningFields().isEmpty()) {
         return false;
@@ -105,6 +103,13 @@ public class HudiPartitionSyncTool implements PartitionSyncTool {
     }
   }
 
+  /**
+   * Syncs all partitions on storage to the metastore, by only making incremental changes.
+   *
+   * @param tableIdentifier The table in the metastore.
+   * @return {@code true} if one or more partition(s) are changed in the metastore; {@code false}
+   *     otherwise.
+   */
   @Override
   public boolean syncPartitions(OneTable table, TableIdentifier tableIdentifier) {
     Map<String, String> lastCommitTimeSyncedProperties =
