@@ -37,6 +37,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.Collections;
+import java.util.Optional;
 import java.util.ServiceLoader;
 
 import lombok.SneakyThrows;
@@ -61,7 +62,7 @@ import org.apache.xtable.model.storage.CatalogType;
 import org.apache.xtable.spi.sync.CatalogSyncClient;
 
 @ExtendWith(MockitoExtension.class)
-public class TestHMSCatalogSyncClient extends HMSCatalogSyncClientTestBase {
+public class TestHMSCatalogSyncClient extends HMSCatalogSyncTestBase {
 
   @Mock private CatalogTableBuilder<Table, Table> mockTableBuilder;
   private HMSCatalogSyncClient hmsCatalogSyncClient;
@@ -72,7 +73,8 @@ public class TestHMSCatalogSyncClient extends HMSCatalogSyncClientTestBase {
         mockHMSCatalogConfig,
         testConfiguration,
         mockMetaStoreClient,
-        mockTableBuilder);
+        mockTableBuilder,
+        Optional.empty());
   }
 
   void setupCommonMocks() {

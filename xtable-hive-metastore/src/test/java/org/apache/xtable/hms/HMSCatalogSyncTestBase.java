@@ -22,6 +22,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.metastore.IMetaStoreClient;
 import org.apache.hadoop.hive.metastore.api.Database;
@@ -29,14 +30,18 @@ import org.apache.hadoop.hive.metastore.api.StorageDescriptor;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.mockito.Mock;
 
+import org.apache.xtable.avro.AvroSchemaConverter;
 import org.apache.xtable.conversion.ExternalCatalogConfig;
 import org.apache.xtable.model.InternalTable;
 import org.apache.xtable.model.catalog.ThreePartHierarchicalTableIdentifier;
+import org.apache.xtable.model.schema.InternalField;
+import org.apache.xtable.model.schema.InternalPartitionField;
 import org.apache.xtable.model.schema.InternalSchema;
+import org.apache.xtable.model.schema.InternalType;
 import org.apache.xtable.model.storage.CatalogType;
 import org.apache.xtable.model.storage.TableFormat;
 
-public class HMSCatalogSyncClientTestBase {
+public class HMSCatalogSyncTestBase {
 
   @Mock protected IMetaStoreClient mockMetaStoreClient;
   @Mock protected HMSCatalogConfig mockHMSCatalogConfig;
@@ -47,12 +52,51 @@ public class HMSCatalogSyncClientTestBase {
   protected static final String TEST_HMS_TABLE = "hms_table";
   protected static final String TEST_BASE_PATH = "base-path";
   protected static final String TEST_CATALOG_NAME = "hms-1";
+  protected static String avroSchema =
+      "{\"type\":\"record\",\"name\":\"SimpleRecord\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"partitionKey\",\"type\":\"string\"}]}";
+  protected static String evolvedAvroSchema =
+      "{\"type\":\"record\",\"name\":\"SimpleRecord\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"partitionKey\",\"type\":\"string\"},{\"name\":\"age\",\"type\":\"int\"}]}";
   protected static final ExternalCatalogConfig TEST_CATALOG_CONFIG =
       ExternalCatalogConfig.builder()
           .catalogId(TEST_CATALOG_NAME)
           .catalogType(CatalogType.HMS)
           .catalogSyncClientImpl(HMSCatalogSyncClient.class.getCanonicalName())
           .catalogProperties(Collections.emptyMap())
+          .build();
+  protected static final InternalTable TEST_INTERNAL_TABLE_WITH_SCHEMA =
+      InternalTable.builder()
+          .basePath(TEST_BASE_PATH)
+          .readSchema(
+              AvroSchemaConverter.getInstance()
+                  .toInternalSchema(new Schema.Parser().parse(avroSchema)))
+          .partitioningFields(
+              Collections.singletonList(
+                  InternalPartitionField.builder()
+                      .sourceField(
+                          InternalField.builder()
+                              .name("partitionKey")
+                              .schema(
+                                  InternalSchema.builder().dataType(InternalType.STRING).build())
+                              .build())
+                      .build()))
+          .build();
+
+  protected static final InternalTable TEST_INTERNAL_TABLE_WITH_EVOLVED_SCHEMA =
+      InternalTable.builder()
+          .basePath(TEST_BASE_PATH)
+          .readSchema(
+              AvroSchemaConverter.getInstance()
+                  .toInternalSchema(new Schema.Parser().parse(evolvedAvroSchema)))
+          .partitioningFields(
+              Collections.singletonList(
+                  InternalPartitionField.builder()
+                      .sourceField(
+                          InternalField.builder()
+                              .name("partitionKey")
+                              .schema(
+                                  InternalSchema.builder().dataType(InternalType.STRING).build())
+                              .build())
+                      .build()))
           .build();
 
   protected static final String ICEBERG_METADATA_FILE_LOCATION = "base-path/metadata";

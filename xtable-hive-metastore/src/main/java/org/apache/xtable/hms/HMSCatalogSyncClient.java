@@ -22,6 +22,7 @@ import static org.apache.xtable.catalog.CatalogUtils.toHierarchicalTableIdentifi
 
 import java.time.ZonedDateTime;
 import java.util.Collections;
+import java.util.Optional;
 
 import lombok.extern.log4j.Log4j2;
 
@@ -36,7 +37,10 @@ import org.apache.thrift.TException;
 
 import com.google.common.annotations.VisibleForTesting;
 
+import org.apache.xtable.catalog.CatalogPartitionSyncOperations;
 import org.apache.xtable.catalog.CatalogTableBuilder;
+import org.apache.xtable.catalog.CatalogUtils;
+import org.apache.xtable.catalog.PartitionSyncTool;
 import org.apache.xtable.conversion.ExternalCatalogConfig;
 import org.apache.xtable.exception.CatalogSyncException;
 import org.apache.xtable.model.InternalTable;
@@ -55,6 +59,7 @@ public class HMSCatalogSyncClient implements CatalogSyncClient<Table> {
   private Configuration configuration;
   private IMetaStoreClient metaStoreClient;
   private CatalogTableBuilder<Table, Table> tableBuilder;
+  private Optional<PartitionSyncTool> partitionSyncTool;
 
   // For loading the instance using ServiceLoader
   public HMSCatalogSyncClient() {}
@@ -70,12 +75,25 @@ public class HMSCatalogSyncClient implements CatalogSyncClient<Table> {
       HMSCatalogConfig hmsCatalogConfig,
       Configuration configuration,
       IMetaStoreClient metaStoreClient,
-      CatalogTableBuilder tableBuilder) {
+      CatalogTableBuilder tableBuilder,
+      Optional<PartitionSyncTool> partitionSyncTool) {
     this.catalogConfig = catalogConfig;
     this.hmsCatalogConfig = hmsCatalogConfig;
     this.configuration = configuration;
     this.metaStoreClient = metaStoreClient;
     this.tableBuilder = tableBuilder;
+    this.partitionSyncTool = partitionSyncTool;
+  }
+
+  private Optional<PartitionSyncTool> getPartitionSyncTool(String tableFormat) {
+    String partitionValueExtractorClass = hmsCatalogConfig.getPartitionExtractorClass();
+    CatalogPartitionSyncOperations hmsCatalogPartitionSyncOperations =
+        new HMSCatalogPartitionSyncOperations(metaStoreClient, hmsCatalogConfig);
+    return CatalogUtils.getPartitionSyncTool(
+        tableFormat,
+        partitionValueExtractorClass,
+        hmsCatalogPartitionSyncOperations,
+        configuration);
   }
 
   @Override
@@ -145,6 +163,8 @@ public class HMSCatalogSyncClient implements CatalogSyncClient<Table> {
     } catch (TException e) {
       throw new CatalogSyncException("Failed to create table: " + tableIdentifier.getId(), e);
     }
+
+    partitionSyncTool.ifPresent(tool -> tool.syncPartitions(table, tableIdentifier));
   }
 
   @Override
@@ -158,6 +178,8 @@ public class HMSCatalogSyncClient implements CatalogSyncClient<Table> {
     } catch (TException e) {
       throw new CatalogSyncException("Failed to refresh table: " + tableIdentifier.getId(), e);
     }
+
+    partitionSyncTool.ifPresent(tool -> tool.syncPartitions(table, tableIdentifier));
   }
 
   @Override
@@ -195,7 +217,9 @@ public class HMSCatalogSyncClient implements CatalogSyncClient<Table> {
       throw new CatalogSyncException("HiveMetastoreClient could not be created", e);
     }
     this.tableBuilder =
-        HMSCatalogTableBuilderFactory.getTableBuilder(tableFormat, this.configuration);
+        HMSCatalogTableBuilderFactory.getTableBuilder(
+            tableFormat, hmsCatalogConfig, this.configuration);
+    this.partitionSyncTool = getPartitionSyncTool(tableFormat);
   }
 
   /**
