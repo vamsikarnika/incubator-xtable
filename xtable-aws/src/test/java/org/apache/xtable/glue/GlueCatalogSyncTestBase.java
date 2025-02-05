@@ -23,13 +23,18 @@ import static org.apache.xtable.glue.GlueCatalogSyncClient.GLUE_EXTERNAL_TABLE_T
 import java.util.Collections;
 import java.util.Map;
 
+import org.apache.avro.Schema;
 import org.apache.hadoop.conf.Configuration;
 import org.mockito.Mock;
 
+import org.apache.xtable.avro.AvroSchemaConverter;
 import org.apache.xtable.conversion.ExternalCatalogConfig;
 import org.apache.xtable.model.InternalTable;
 import org.apache.xtable.model.catalog.ThreePartHierarchicalTableIdentifier;
+import org.apache.xtable.model.schema.InternalField;
+import org.apache.xtable.model.schema.InternalPartitionField;
 import org.apache.xtable.model.schema.InternalSchema;
+import org.apache.xtable.model.schema.InternalType;
 import org.apache.xtable.model.storage.CatalogType;
 import org.apache.xtable.model.storage.TableFormat;
 
@@ -60,6 +65,11 @@ public class GlueCatalogSyncTestBase {
   protected static final String TEST_CATALOG_NAME = "aws-glue-1";
   protected static final String ICEBERG_METADATA_FILE_LOCATION = "base-path/metadata";
   protected static final String ICEBERG_METADATA_FILE_LOCATION_v2 = "base-path/v2-metadata";
+  protected static String avroSchema =
+      "{\"type\":\"record\",\"name\":\"SimpleRecord\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"partitionKey\",\"type\":\"string\"}]}";
+  protected static String evolvedAvroSchema =
+      "{\"type\":\"record\",\"name\":\"SimpleRecord\",\"namespace\":\"com.example\",\"fields\":[{\"name\":\"id\",\"type\":\"int\"},{\"name\":\"name\",\"type\":\"string\"},{\"name\":\"partitionKey\",\"type\":\"string\"},{\"name\":\"age\",\"type\":\"int\"}]}";
+
   protected static final InternalTable TEST_ICEBERG_INTERNAL_TABLE =
       InternalTable.builder()
           .basePath(TEST_BASE_PATH)
@@ -71,6 +81,40 @@ public class GlueCatalogSyncTestBase {
           .basePath(TEST_BASE_PATH)
           .tableFormat(TableFormat.HUDI)
           .readSchema(InternalSchema.builder().fields(Collections.emptyList()).build())
+          .build();
+  protected static final InternalTable TEST_INTERNAL_TABLE_WITH_SCHEMA =
+      InternalTable.builder()
+          .basePath(TEST_BASE_PATH)
+          .readSchema(
+              AvroSchemaConverter.getInstance()
+                  .toInternalSchema(new Schema.Parser().parse(avroSchema)))
+          .partitioningFields(
+              Collections.singletonList(
+                  InternalPartitionField.builder()
+                      .sourceField(
+                          InternalField.builder()
+                              .name("partitionKey")
+                              .schema(
+                                  InternalSchema.builder().dataType(InternalType.STRING).build())
+                              .build())
+                      .build()))
+          .build();
+  protected static final InternalTable TEST_ONETABLE_WITH_EVOLVED_SCHEMA =
+      InternalTable.builder()
+          .basePath(TEST_BASE_PATH)
+          .readSchema(
+              AvroSchemaConverter.getInstance()
+                  .toInternalSchema(new Schema.Parser().parse(evolvedAvroSchema)))
+          .partitioningFields(
+              Collections.singletonList(
+                  InternalPartitionField.builder()
+                      .sourceField(
+                          InternalField.builder()
+                              .name("partitionKey")
+                              .schema(
+                                  InternalSchema.builder().dataType(InternalType.STRING).build())
+                              .build())
+                      .build()))
           .build();
   protected static final ThreePartHierarchicalTableIdentifier TEST_CATALOG_TABLE_IDENTIFIER =
       new ThreePartHierarchicalTableIdentifier(TEST_GLUE_DATABASE, TEST_GLUE_TABLE);
