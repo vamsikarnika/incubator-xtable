@@ -45,6 +45,8 @@ datasets:
   - sourceCatalogTableIdentifier:
       tableIdentifier:
         hierarchicalId: "source-database-1.source-1"
+      tableProperties:
+        xtable.source.partition_field_spec_config: "cs_sold_date_sk:VALUE"
     targetCatalogTableIdentifiers:
       - catalogId: "target-1"
         tableFormat: "DELTA"

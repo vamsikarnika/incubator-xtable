@@ -46,13 +46,13 @@ public class HMSCatalogConfig {
   private final String serverUrl;
 
   @JsonProperty("externalCatalog.hms.schema_string_length_thresh")
-  private int schemaLengthThreshold = 4000;
+  private final int schemaLengthThreshold = 4000;
 
   @JsonProperty("externalCatalog.hms.partition_extractor_class")
-  private String partitionExtractorClass = MultiPartKeysValueExtractor.class.getName();
+  private final String partitionExtractorClass = MultiPartKeysValueExtractor.class.getName();
 
   @JsonProperty("externalCatalog.hms.max_partitions_per_request")
-  private int maxPartitionsPerRequest = 1000;
+  private final int maxPartitionsPerRequest = 1000;
 
   protected static HMSCatalogConfig of(Map<String, String> properties) {
     try {
